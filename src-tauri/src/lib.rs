@@ -1,11 +1,15 @@
 pub mod reaper_osc;
 
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
 use tauri::Emitter;
+
+const DUPLICATE_SCENE_RECALL_WINDOW: Duration = Duration::from_millis(250);
 
 #[derive(Default)]
 struct MidiLogState {
     connection: Mutex<Option<midir::MidiInputConnection<()>>>,
+    recent_scene_recall: Arc<Mutex<Option<(u16, Instant)>>>,
 }
 
 fn temporary_scene_name(scene_number: u16) -> Option<&'static str> {
@@ -15,6 +19,28 @@ fn temporary_scene_name(scene_number: u16) -> Option<&'static str> {
         10 => Some("Song 10"),
         _ => None,
     }
+}
+
+fn should_create_marker(
+    recent_scene_recall: &Mutex<Option<(u16, Instant)>>,
+    scene_number: u16,
+) -> bool {
+    let Ok(mut last_scene_recall) = recent_scene_recall.lock() else {
+        return true;
+    };
+
+    let now = Instant::now();
+    if matches!(
+        *last_scene_recall,
+        Some((last_scene_number, timestamp))
+            if last_scene_number == scene_number
+                && now.duration_since(timestamp) < DUPLICATE_SCENE_RECALL_WINDOW
+    ) {
+        return false;
+    }
+
+    *last_scene_recall = Some((scene_number, now));
+    true
 }
 
 #[tauri::command]
@@ -54,6 +80,7 @@ fn start_midi_log(
         .take();
     drop(previous_connection);
 
+    let recent_scene_recall = Arc::clone(&state.recent_scene_recall);
     let connection = midi_input
         .connect(
             &port,
@@ -72,7 +99,11 @@ fn start_midi_log(
                     let scene_name = temporary_scene_name(scene_number)
                         .map(str::to_string)
                         .unwrap_or_else(|| format!("Unnamed scene {scene_number}"));
-                    let _ = app.emit("midi-scene-recall", (scene_number, scene_name));
+                    let _ = app.emit("midi-scene-recall", (scene_number, scene_name.clone()));
+
+                    if should_create_marker(&recent_scene_recall, scene_number) {
+                        let _ = reaper_osc::ReaperOscClient::default().create_marker(&scene_name);
+                    }
                 }
             },
             (),
