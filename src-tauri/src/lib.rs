@@ -338,7 +338,7 @@ fn stop_midi_log(state: tauri::State<'_, MidiLogState>) -> Result<(), String> {
 fn test_reaper_osc_marker(
     reaper_osc_settings: tauri::State<'_, ReaperOscSettings>,
 ) -> Result<String, String> {
-    create_reaper_marker(&reaper_osc_settings.config, "OSC TEST")
+    create_reaper_marker(&reaper_osc_settings.config, "REAPER CONNECTION TEST")
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]

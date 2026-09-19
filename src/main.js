@@ -6,6 +6,9 @@ window.addEventListener("DOMContentLoaded", () => {
   const saveReaperOscSettingsButton = document.querySelector(
     "#save-reaper-osc-settings",
   );
+  const testReaperConnectionButton = document.querySelector(
+    "#test-reaper-connection",
+  );
   const reaperOscSettingsResult = document.querySelector(
     "#reaper-osc-settings-result",
   );
@@ -62,6 +65,21 @@ window.addEventListener("DOMContentLoaded", () => {
       reaperOscSettingsResult.textContent = `Error: ${error}`;
     } finally {
       saveReaperOscSettingsButton.disabled = false;
+    }
+  });
+
+  testReaperConnectionButton.addEventListener("click", async () => {
+    testReaperConnectionButton.disabled = true;
+    reaperOscSettingsResult.textContent = "Testing saved REAPER OSC settings...";
+
+    try {
+      const markerNumber = await invoke("test_reaper_osc_marker");
+      reaperOscSettingsResult.textContent =
+        `REAPER connection confirmed (marker ${markerNumber})`;
+    } catch (error) {
+      reaperOscSettingsResult.textContent = `REAPER connection failed: ${error}`;
+    } finally {
+      testReaperConnectionButton.disabled = false;
     }
   });
 
