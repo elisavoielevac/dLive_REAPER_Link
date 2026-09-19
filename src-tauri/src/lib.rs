@@ -1,7 +1,7 @@
 pub mod reaper_osc;
 
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use tauri::{Emitter, Manager};
@@ -14,7 +14,10 @@ struct MidiLogState {
     recent_scene_recall: Arc<Mutex<Option<(u16, Instant)>>>,
 }
 
-struct SceneNames(Arc<Vec<String>>);
+struct SceneNames {
+    names: Arc<Vec<String>>,
+    path: PathBuf,
+}
 
 impl SceneNames {
     fn load(scene_file: &Path) -> Result<Self, std::io::Error> {
@@ -31,7 +34,10 @@ impl SceneNames {
             .map(|line| line.trim().to_string())
             .collect();
 
-        Ok(Self(Arc::new(names)))
+        Ok(Self {
+            names: Arc::new(names),
+            path: scene_file.to_path_buf(),
+        })
     }
 }
 
@@ -82,6 +88,11 @@ fn list_midi_inputs() -> Result<Vec<String>, String> {
 }
 
 #[tauri::command]
+fn get_scene_file_path(scene_names: tauri::State<'_, SceneNames>) -> String {
+    scene_names.path.display().to_string()
+}
+
+#[tauri::command]
 fn start_midi_log(
     port_name: String,
     app: tauri::AppHandle,
@@ -104,7 +115,7 @@ fn start_midi_log(
     drop(previous_connection);
 
     let recent_scene_recall = Arc::clone(&state.recent_scene_recall);
-    let scene_names = Arc::clone(&scene_names.0);
+    let scene_names = Arc::clone(&scene_names.names);
     let connection = midi_input
         .connect(
             &port,
@@ -160,6 +171,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             list_midi_inputs,
+            get_scene_file_path,
             start_midi_log,
             test_reaper_osc_marker
         ])

@@ -5,6 +5,7 @@ window.addEventListener("DOMContentLoaded", () => {
   const testResult = document.querySelector("#test-reaper-osc-result");
   const midiButton = document.querySelector("#list-midi-inputs");
   const midiResult = document.querySelector("#midi-inputs-result");
+  const sceneFilePath = document.querySelector("#scene-file-path");
   const midiInputSelect = document.querySelector("#midi-input-select");
   const startMidiLogButton = document.querySelector("#start-midi-log");
   const midiLogResult = document.querySelector("#midi-log-result");
@@ -12,6 +13,17 @@ window.addEventListener("DOMContentLoaded", () => {
   const midiSceneNameResult = document.querySelector("#midi-scene-name-result");
   const midiLog = document.querySelector("#midi-log");
   let unlistenMidiMessages;
+
+  async function loadSceneFilePath() {
+    try {
+      const path = await invoke("get_scene_file_path");
+      sceneFilePath.textContent = `Scene file: ${path}`;
+    } catch (error) {
+      sceneFilePath.textContent = `Scene file error: ${error}`;
+    }
+  }
+
+  void loadSceneFilePath();
 
   testButton.addEventListener("click", async () => {
     testButton.disabled = true;
