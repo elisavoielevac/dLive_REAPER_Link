@@ -8,6 +8,7 @@ use tauri::{Emitter, Manager};
 use tauri_plugin_opener::OpenerExt;
 
 const DUPLICATE_SCENE_RECALL_WINDOW: Duration = Duration::from_millis(250);
+const SCENE_SLOT_COUNT: usize = 500;
 
 #[derive(Default)]
 struct MidiLogState {
@@ -141,12 +142,50 @@ impl SceneNames {
         *loaded_names = names;
         Ok(loaded_names.len())
     }
+
+    fn editable_entries(&self) -> Result<Vec<String>, String> {
+        let names = self
+            .names
+            .read()
+            .map_err(|_| "scene names are unavailable".to_string())?;
+        let mut entries = names
+            .iter()
+            .take(SCENE_SLOT_COUNT)
+            .cloned()
+            .collect::<Vec<_>>();
+        entries.resize(SCENE_SLOT_COUNT, String::new());
+        Ok(entries)
+    }
+
+    fn save(&self, names: Vec<String>) -> Result<usize, String> {
+        if names.len() != SCENE_SLOT_COUNT {
+            return Err(format!(
+                "exactly {SCENE_SLOT_COUNT} scene names are required"
+            ));
+        }
+        if names
+            .iter()
+            .any(|name| name.contains('\n') || name.contains('\r'))
+        {
+            return Err("scene names cannot contain line breaks".to_string());
+        }
+
+        fs::write(&self.path, format!("{}\n", names.join("\n")))
+            .map_err(|error| error.to_string())?;
+        self.reload()
+    }
 }
 
 fn read_scene_names(scene_file: &Path) -> Result<Vec<String>, std::io::Error> {
     fs::read_to_string(scene_file).map(|contents| {
+        if contents.is_empty() {
+            return Vec::new();
+        }
+
         contents
-            .lines()
+            .strip_suffix('\n')
+            .unwrap_or(&contents)
+            .split('\n')
             .map(|line| line.trim().to_string())
             .collect()
     })
@@ -275,6 +314,21 @@ fn reload_scene_names(scene_names: tauri::State<'_, SceneNames>) -> Result<usize
 }
 
 #[tauri::command]
+fn get_scene_name_entries(
+    scene_names: tauri::State<'_, SceneNames>,
+) -> Result<Vec<String>, String> {
+    scene_names.editable_entries()
+}
+
+#[tauri::command]
+fn save_scene_names(
+    names: Vec<String>,
+    scene_names: tauri::State<'_, SceneNames>,
+) -> Result<usize, String> {
+    scene_names.save(names)
+}
+
+#[tauri::command]
 fn start_midi_log(
     port_name: String,
     app: tauri::AppHandle,
@@ -380,6 +434,8 @@ pub fn run() {
             reveal_scene_file,
             get_scene_names_count,
             reload_scene_names,
+            get_scene_name_entries,
+            save_scene_names,
             start_midi_log,
             stop_midi_log,
             test_reaper_osc_marker

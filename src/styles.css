@@ -103,6 +103,7 @@ button:disabled {
 #scene-file-path,
 #scene-file-reveal-result,
 #scene-file-reload-result,
+#scene-editor-result,
 #midi-log-result,
 #midi-scene-result,
 #midi-scene-name-result {
@@ -145,6 +146,54 @@ button:disabled {
 
 .scene-file-actions #scene-file-path {
   min-width: 0;
+}
+
+.scene-editor-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.scene-editor-heading button {
+  flex: 0 0 auto;
+}
+
+.scene-editor-note {
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.scene-editor {
+  display: grid;
+  max-height: 28rem;
+  margin-top: 0.75rem;
+  border: 1px solid #cbd2d9;
+  overflow-y: auto;
+}
+
+.scene-editor-row {
+  display: grid;
+  grid-template-columns: 5rem minmax(0, 1fr);
+  align-items: center;
+  gap: 0.75rem;
+  min-height: 2.75rem;
+  padding: 0.25rem 0.75rem;
+  border-bottom: 1px solid #e4e7eb;
+}
+
+.scene-editor-row:last-child {
+  border-bottom: 0;
+}
+
+.scene-editor-number {
+  color: #52606d;
+  font-size: 0.875rem;
+}
+
+.scene-editor-row input {
+  width: 100%;
 }
 
 select,
@@ -198,8 +247,13 @@ input {
   .readiness-summary,
   select,
   input,
-  #midi-log {
+  #midi-log,
+  .scene-editor {
     border-color: #52606d;
+  }
+
+  .scene-editor-row {
+    border-bottom-color: #374151;
   }
 
   select,
@@ -219,7 +273,8 @@ input {
 
   .control-row,
   .reaper-osc-settings,
-  .scene-file-actions {
+  .scene-file-actions,
+  .scene-editor-heading {
     align-items: stretch;
   }
 }

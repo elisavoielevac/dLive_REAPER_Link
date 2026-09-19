@@ -27,6 +27,9 @@ window.addEventListener("DOMContentLoaded", () => {
   const sceneFileReloadResult = document.querySelector(
     "#scene-file-reload-result",
   );
+  const sceneEditor = document.querySelector("#scene-editor");
+  const saveSceneNamesButton = document.querySelector("#save-scene-names");
+  const sceneEditorResult = document.querySelector("#scene-editor-result");
   const midiInputSelect = document.querySelector("#midi-input-select");
   const startMidiLogButton = document.querySelector("#start-midi-log");
   const stopMidiLogButton = document.querySelector("#stop-midi-log");
@@ -135,6 +138,44 @@ window.addEventListener("DOMContentLoaded", () => {
 
   void loadSceneNamesStatus();
 
+  async function loadSceneEditor() {
+    saveSceneNamesButton.disabled = true;
+    sceneEditorResult.textContent = "Loading scene names...";
+
+    try {
+      const names = await invoke("get_scene_name_entries");
+      const rows = document.createDocumentFragment();
+
+      names.forEach((name, index) => {
+        const sceneNumber = index + 1;
+        const row = document.createElement("label");
+        row.className = "scene-editor-row";
+
+        const number = document.createElement("span");
+        number.className = "scene-editor-number";
+        number.textContent = `Scene ${sceneNumber}`;
+
+        const input = document.createElement("input");
+        input.type = "text";
+        input.value = name;
+        input.autocomplete = "off";
+        input.spellcheck = false;
+        input.setAttribute("aria-label", `Scene ${sceneNumber} name`);
+
+        row.append(number, input);
+        rows.append(row);
+      });
+
+      sceneEditor.replaceChildren(rows);
+      sceneEditorResult.textContent = "";
+      saveSceneNamesButton.disabled = false;
+    } catch (error) {
+      sceneEditorResult.textContent = `Could not load scene names: ${error}`;
+    }
+  }
+
+  void loadSceneEditor();
+
   async function refreshMidiInputs() {
     midiButton.disabled = true;
     midiResult.textContent = "Refreshing MIDI inputs...";
@@ -203,10 +244,35 @@ window.addEventListener("DOMContentLoaded", () => {
       sceneNamesCount = await invoke("reload_scene_names");
       updateReadiness();
       sceneFileReloadResult.textContent = "Scene names reloaded";
+      await loadSceneEditor();
     } catch (error) {
       sceneFileReloadResult.textContent = `Could not reload scene names: ${error}`;
     } finally {
       reloadSceneNamesButton.disabled = false;
+    }
+  });
+
+  saveSceneNamesButton.addEventListener("click", async () => {
+    const names = Array.from(sceneEditor.querySelectorAll("input"), (input) =>
+      input.value,
+    );
+
+    if (names.length !== 500) {
+      sceneEditorResult.textContent = "Could not save scene names: 500 scene slots are required";
+      return;
+    }
+
+    saveSceneNamesButton.disabled = true;
+    sceneEditorResult.textContent = "Saving 500 scene names...";
+
+    try {
+      sceneNamesCount = await invoke("save_scene_names", { names });
+      updateReadiness();
+      sceneEditorResult.textContent = "Scene names saved and reloaded";
+    } catch (error) {
+      sceneEditorResult.textContent = `Could not save scene names: ${error}`;
+    } finally {
+      saveSceneNamesButton.disabled = false;
     }
   });
 
