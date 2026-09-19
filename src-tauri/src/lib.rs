@@ -40,6 +40,70 @@ impl MidiInputSelection {
     }
 }
 
+struct ReaperOscSettings {
+    config: Arc<RwLock<reaper_osc::ReaperOscConfig>>,
+    path: PathBuf,
+}
+
+impl ReaperOscSettings {
+    fn load(path: PathBuf) -> Result<Self, std::io::Error> {
+        let mut config = reaper_osc::ReaperOscConfig::default();
+
+        match fs::read_to_string(&path) {
+            Ok(contents) => {
+                let mut lines = contents.lines();
+                if let Some(host) = lines.next().filter(|host| !host.trim().is_empty()) {
+                    config.host = host.trim().to_string();
+                }
+                if let Some(port) = lines
+                    .next()
+                    .and_then(|port| port.trim().parse::<u16>().ok())
+                    .filter(|port| *port != 0)
+                {
+                    config.receive_port = port;
+                }
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+            Err(error) => return Err(error),
+        }
+
+        Ok(Self {
+            config: Arc::new(RwLock::new(config)),
+            path,
+        })
+    }
+
+    fn get(&self) -> Result<(String, u16), String> {
+        let config = self
+            .config
+            .read()
+            .map_err(|_| "REAPER OSC settings are unavailable".to_string())?;
+        Ok((config.host.clone(), config.receive_port))
+    }
+
+    fn save(&self, host: String, port: u16) -> Result<(), String> {
+        let host = host.trim().to_string();
+        if host.is_empty() {
+            return Err("REAPER OSC host cannot be empty".to_string());
+        }
+        if port == 0 {
+            return Err("REAPER OSC port must be between 1 and 65535".to_string());
+        }
+        if let Some(parent) = self.path.parent() {
+            fs::create_dir_all(parent).map_err(|error| error.to_string())?;
+        }
+        fs::write(&self.path, format!("{host}\n{port}\n")).map_err(|error| error.to_string())?;
+
+        let mut config = self
+            .config
+            .write()
+            .map_err(|_| "REAPER OSC settings are unavailable".to_string())?;
+        config.host = host;
+        config.receive_port = port;
+        Ok(())
+    }
+}
+
 struct SceneNames {
     names: Arc<RwLock<Vec<String>>>,
     path: PathBuf,
@@ -115,6 +179,20 @@ fn should_create_marker(
     true
 }
 
+fn create_reaper_marker(
+    reaper_osc_config: &RwLock<reaper_osc::ReaperOscConfig>,
+    name: &str,
+) -> Result<String, String> {
+    let config = reaper_osc_config
+        .read()
+        .map_err(|_| "REAPER OSC settings are unavailable".to_string())?
+        .clone();
+
+    reaper_osc::ReaperOscClient::new(config)
+        .create_marker(name)
+        .map_err(|error| error.to_string())
+}
+
 #[tauri::command]
 fn list_midi_inputs() -> Result<Vec<String>, String> {
     let midi_input =
@@ -149,6 +227,22 @@ fn save_midi_input(
 }
 
 #[tauri::command]
+fn get_reaper_osc_settings(
+    settings: tauri::State<'_, ReaperOscSettings>,
+) -> Result<(String, u16), String> {
+    settings.get()
+}
+
+#[tauri::command]
+fn save_reaper_osc_settings(
+    host: String,
+    port: u16,
+    settings: tauri::State<'_, ReaperOscSettings>,
+) -> Result<(), String> {
+    settings.save(host, port)
+}
+
+#[tauri::command]
 fn get_scene_file_path(scene_names: tauri::State<'_, SceneNames>) -> String {
     scene_names.path.display().to_string()
 }
@@ -174,6 +268,7 @@ fn start_midi_log(
     app: tauri::AppHandle,
     state: tauri::State<'_, MidiLogState>,
     scene_names: tauri::State<'_, SceneNames>,
+    reaper_osc_settings: tauri::State<'_, ReaperOscSettings>,
 ) -> Result<(), String> {
     let midi_input =
         midir::MidiInput::new("dLive REAPER Link").map_err(|error| error.to_string())?;
@@ -193,6 +288,7 @@ fn start_midi_log(
 
     let recent_scene_recall = Arc::clone(&state.recent_scene_recall);
     let scene_names = Arc::clone(&scene_names.names);
+    let reaper_osc_config = Arc::clone(&reaper_osc_settings.config);
     let connection = midi_input
         .connect(
             &port,
@@ -212,7 +308,7 @@ fn start_midi_log(
                     let _ = app.emit("midi-scene-recall", (scene_number, scene_name.clone()));
 
                     if should_create_marker(&recent_scene_recall, scene_number) {
-                        let _ = reaper_osc::ReaperOscClient::default().create_marker(&scene_name);
+                        let _ = create_reaper_marker(&reaper_osc_config, &scene_name);
                     }
                 }
             },
@@ -239,10 +335,10 @@ fn stop_midi_log(state: tauri::State<'_, MidiLogState>) -> Result<(), String> {
 }
 
 #[tauri::command]
-fn test_reaper_osc_marker() -> Result<String, String> {
-    reaper_osc::ReaperOscClient::default()
-        .create_marker("OSC TEST")
-        .map_err(|error| error.to_string())
+fn test_reaper_osc_marker(
+    reaper_osc_settings: tauri::State<'_, ReaperOscSettings>,
+) -> Result<String, String> {
+    create_reaper_marker(&reaper_osc_settings.config, "OSC TEST")
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -252,17 +348,22 @@ pub fn run() {
         .manage(MidiLogState::default())
         .setup(|app| {
             let scene_file = app.path().app_data_dir()?.join("dLive_Scenes.txt");
-            let midi_input_selection = app.path().app_config_dir()?.join("selected_midi_input.txt");
+            let app_config_dir = app.path().app_config_dir()?;
+            let midi_input_selection = app_config_dir.join("selected_midi_input.txt");
+            let reaper_osc_settings = app_config_dir.join("reaper_osc_settings.txt");
             app.manage(SceneNames::load(&scene_file)?);
             app.manage(MidiInputSelection {
                 path: midi_input_selection,
             });
+            app.manage(ReaperOscSettings::load(reaper_osc_settings)?);
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
             list_midi_inputs,
             get_saved_midi_input,
             save_midi_input,
+            get_reaper_osc_settings,
+            save_reaper_osc_settings,
             get_scene_file_path,
             reveal_scene_file,
             reload_scene_names,

@@ -12,6 +12,14 @@
     <main class="container">
       <h1>dLive &rarr; REAPER Link</h1>
       <p>Setup complete</p>
+      <div class="reaper-osc-settings">
+        <label for="reaper-osc-host">REAPER OSC Host</label>
+        <input id="reaper-osc-host" type="text" autocomplete="off" spellcheck="false" />
+        <label for="reaper-osc-port">REAPER OSC Port</label>
+        <input id="reaper-osc-port" type="number" min="1" max="65535" inputmode="numeric" />
+        <button id="save-reaper-osc-settings" type="button">Save REAPER OSC Settings</button>
+      </div>
+      <p id="reaper-osc-settings-result" role="status" aria-live="polite"></p>
       <button id="list-midi-inputs" type="button">Refresh MIDI Inputs</button>
       <p id="midi-inputs-result" role="status" aria-live="polite"></p>
       <div class="scene-file-actions">

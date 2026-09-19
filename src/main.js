@@ -1,6 +1,14 @@
 const { invoke } = window.__TAURI__.core;
 
 window.addEventListener("DOMContentLoaded", () => {
+  const reaperOscHost = document.querySelector("#reaper-osc-host");
+  const reaperOscPort = document.querySelector("#reaper-osc-port");
+  const saveReaperOscSettingsButton = document.querySelector(
+    "#save-reaper-osc-settings",
+  );
+  const reaperOscSettingsResult = document.querySelector(
+    "#reaper-osc-settings-result",
+  );
   const midiButton = document.querySelector("#list-midi-inputs");
   const midiResult = document.querySelector("#midi-inputs-result");
   const sceneFilePath = document.querySelector("#scene-file-path");
@@ -21,6 +29,41 @@ window.addEventListener("DOMContentLoaded", () => {
   const midiLog = document.querySelector("#midi-log");
   let dLiveLinkRunning = false;
   let unlistenMidiMessages;
+
+  async function loadReaperOscSettings() {
+    try {
+      const [host, port] = await invoke("get_reaper_osc_settings");
+      reaperOscHost.value = host;
+      reaperOscPort.value = port;
+    } catch (error) {
+      reaperOscSettingsResult.textContent = `Error: ${error}`;
+    }
+  }
+
+  void loadReaperOscSettings();
+
+  saveReaperOscSettingsButton.addEventListener("click", async () => {
+    const host = reaperOscHost.value.trim();
+    const port = Number(reaperOscPort.value);
+
+    if (!host || !Number.isInteger(port) || port < 1 || port > 65535) {
+      reaperOscSettingsResult.textContent =
+        "Enter a host and a port between 1 and 65535";
+      return;
+    }
+
+    saveReaperOscSettingsButton.disabled = true;
+    reaperOscSettingsResult.textContent = "Saving REAPER OSC settings...";
+
+    try {
+      await invoke("save_reaper_osc_settings", { host, port });
+      reaperOscSettingsResult.textContent = "REAPER OSC settings saved";
+    } catch (error) {
+      reaperOscSettingsResult.textContent = `Error: ${error}`;
+    } finally {
+      saveReaperOscSettingsButton.disabled = false;
+    }
+  });
 
   async function loadSceneFilePath() {
     try {
