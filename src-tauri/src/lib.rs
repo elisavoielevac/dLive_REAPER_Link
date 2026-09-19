@@ -1,8 +1,10 @@
 pub mod reaper_osc;
 
+use std::fs;
+use std::path::Path;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
-use tauri::Emitter;
+use tauri::{Emitter, Manager};
 
 const DUPLICATE_SCENE_RECALL_WINDOW: Duration = Duration::from_millis(250);
 
@@ -12,13 +14,33 @@ struct MidiLogState {
     recent_scene_recall: Arc<Mutex<Option<(u16, Instant)>>>,
 }
 
-fn temporary_scene_name(scene_number: u16) -> Option<&'static str> {
-    match scene_number {
-        1 => Some("Song 1"),
-        2 => Some("Song 2"),
-        10 => Some("Song 10"),
-        _ => None,
+struct SceneNames(Arc<Vec<String>>);
+
+impl SceneNames {
+    fn load(scene_file: &Path) -> Result<Self, std::io::Error> {
+        if let Some(parent) = scene_file.parent() {
+            fs::create_dir_all(parent)?;
+        }
+
+        if !scene_file.exists() {
+            fs::write(scene_file, include_str!("../dLive_Scenes.txt"))?;
+        }
+
+        let names = fs::read_to_string(scene_file)?
+            .lines()
+            .map(|line| line.trim().to_string())
+            .collect();
+
+        Ok(Self(Arc::new(names)))
     }
+}
+
+fn scene_name(scene_names: &[String], scene_number: u16) -> String {
+    scene_names
+        .get(usize::from(scene_number - 1))
+        .filter(|name| !name.is_empty())
+        .cloned()
+        .unwrap_or_else(|| format!("Unnamed scene {scene_number}"))
 }
 
 fn should_create_marker(
@@ -64,6 +86,7 @@ fn start_midi_log(
     port_name: String,
     app: tauri::AppHandle,
     state: tauri::State<'_, MidiLogState>,
+    scene_names: tauri::State<'_, SceneNames>,
 ) -> Result<(), String> {
     let midi_input =
         midir::MidiInput::new("dLive REAPER Link").map_err(|error| error.to_string())?;
@@ -81,6 +104,7 @@ fn start_midi_log(
     drop(previous_connection);
 
     let recent_scene_recall = Arc::clone(&state.recent_scene_recall);
+    let scene_names = Arc::clone(&scene_names.0);
     let connection = midi_input
         .connect(
             &port,
@@ -96,9 +120,7 @@ fn start_midi_log(
 
                 if let [0xCB, program, ..] = message {
                     let scene_number = u16::from(*program) + 1;
-                    let scene_name = temporary_scene_name(scene_number)
-                        .map(str::to_string)
-                        .unwrap_or_else(|| format!("Unnamed scene {scene_number}"));
+                    let scene_name = scene_name(&scene_names, scene_number);
                     let _ = app.emit("midi-scene-recall", (scene_number, scene_name.clone()));
 
                     if should_create_marker(&recent_scene_recall, scene_number) {
@@ -131,6 +153,11 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .manage(MidiLogState::default())
+        .setup(|app| {
+            let scene_file = app.path().app_data_dir()?.join("dLive_Scenes.txt");
+            app.manage(SceneNames::load(&scene_file)?);
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             list_midi_inputs,
             start_midi_log,
