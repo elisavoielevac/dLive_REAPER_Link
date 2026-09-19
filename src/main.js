@@ -30,6 +30,15 @@ window.addEventListener("DOMContentLoaded", () => {
   const openSceneEditorButton = document.querySelector("#open-scene-editor");
   const sceneEditorPanel = document.querySelector("#scene-editor-panel");
   const closeSceneEditorButton = document.querySelector("#close-scene-editor");
+  const discardSceneEditorConfirmation = document.querySelector(
+    "#discard-scene-editor-confirmation",
+  );
+  const keepEditingSceneNamesButton = document.querySelector(
+    "#keep-editing-scene-names",
+  );
+  const discardSceneNameChangesButton = document.querySelector(
+    "#discard-scene-name-changes",
+  );
   const sceneEditorFilePath = document.querySelector("#scene-editor-file-path");
   const sceneEditor = document.querySelector("#scene-editor");
   const saveSceneNamesButton = document.querySelector("#save-scene-names");
@@ -189,19 +198,23 @@ window.addEventListener("DOMContentLoaded", () => {
     await loadSceneEditor();
   }
 
-  function closeSceneEditor() {
-    if (
-      sceneEditorDirty &&
-      !window.confirm("Discard unsaved scene name changes?")
-    ) {
-      return;
-    }
-
+  function closeSceneEditorNow() {
+    discardSceneEditorConfirmation.hidden = true;
     sceneEditorPanel.hidden = true;
     document.body.classList.remove("scene-editor-open");
     sceneEditor.replaceChildren();
     sceneEditorResult.textContent = "";
     sceneEditorDirty = false;
+  }
+
+  function closeSceneEditor() {
+    if (sceneEditorDirty) {
+      discardSceneEditorConfirmation.hidden = false;
+      discardSceneNameChangesButton.focus();
+      return;
+    }
+
+    closeSceneEditorNow();
   }
 
   async function refreshMidiInputs() {
@@ -314,6 +327,13 @@ window.addEventListener("DOMContentLoaded", () => {
   });
 
   closeSceneEditorButton.addEventListener("click", closeSceneEditor);
+
+  keepEditingSceneNamesButton.addEventListener("click", () => {
+    discardSceneEditorConfirmation.hidden = true;
+    closeSceneEditorButton.focus();
+  });
+
+  discardSceneNameChangesButton.addEventListener("click", closeSceneEditorNow);
 
   sceneEditor.addEventListener("input", () => {
     sceneEditorDirty = true;

@@ -97,6 +97,16 @@
         <div id="scene-editor" class="scene-editor" aria-label="Scene name editor"></div>
         <p id="scene-editor-result" role="status" aria-live="polite"></p>
       </section>
+      <div id="discard-scene-editor-confirmation" class="scene-editor-confirmation" role="alertdialog" aria-modal="true" aria-labelledby="discard-scene-editor-heading" hidden>
+        <div class="scene-editor-confirmation-dialog">
+          <h3 id="discard-scene-editor-heading">Discard unsaved changes?</h3>
+          <p>Your scene name edits will not be saved.</p>
+          <div class="scene-editor-confirmation-actions">
+            <button id="keep-editing-scene-names" type="button">Keep Editing</button>
+            <button id="discard-scene-name-changes" type="button">Discard Changes</button>
+          </div>
+        </div>
+      </div>
     </div>
   </body>
 </html>

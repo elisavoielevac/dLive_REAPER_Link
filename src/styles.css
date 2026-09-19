@@ -181,6 +181,37 @@ button:disabled {
   display: none;
 }
 
+.scene-editor-confirmation {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgb(17 24 39 / 0.65);
+}
+
+.scene-editor-confirmation[hidden] {
+  display: none;
+}
+
+.scene-editor-confirmation-dialog {
+  width: min(28rem, 100%);
+  border: 1px solid #cbd2d9;
+  border-radius: 6px;
+  padding: 1.25rem;
+  background: #f7f8fa;
+  box-shadow: 0 0.75rem 2rem rgb(17 24 39 / 0.35);
+}
+
+.scene-editor-confirmation-actions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
 .scene-editor-dialog {
   width: min(62rem, 100%);
   max-height: calc(100vh - 2rem);
@@ -300,6 +331,11 @@ input {
     background: #111827;
   }
 
+  .scene-editor-confirmation-dialog {
+    border-color: #52606d;
+    background: #111827;
+  }
+
   .scene-editor-row {
     border-bottom-color: #374151;
   }
@@ -323,7 +359,8 @@ input {
   .reaper-osc-settings,
   .scene-file-actions,
   .scene-editor-dialog-header,
-  .scene-editor-actions {
+  .scene-editor-actions,
+  .scene-editor-confirmation-actions {
     align-items: stretch;
   }
 
