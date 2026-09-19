@@ -165,6 +165,14 @@ input {
   white-space: pre-wrap;
 }
 
+.app-footer {
+  margin-top: auto;
+  padding-top: 1rem;
+  color: #52606d;
+  font-size: 0.8125rem;
+  text-align: center;
+}
+
 @media (prefers-color-scheme: dark) {
   :root {
     color: #f5f7fa;
@@ -192,6 +200,10 @@ input {
   select,
   input {
     background: #1f2933;
+  }
+
+  .app-footer {
+    color: #cbd2d9;
   }
 }
 
