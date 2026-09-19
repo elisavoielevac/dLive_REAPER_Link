@@ -132,6 +132,48 @@ impl MarkerModeSettings {
     }
 }
 
+struct MarkerCreationSettings {
+    enabled: Arc<RwLock<bool>>,
+    path: PathBuf,
+}
+
+impl MarkerCreationSettings {
+    fn load(path: PathBuf) -> Result<Self, std::io::Error> {
+        let enabled = fs::read_to_string(&path)
+            .ok()
+            .and_then(|value| match value.trim() {
+                "on" => Some(true),
+                "off" => Some(false),
+                _ => None,
+            })
+            .unwrap_or(true);
+        Ok(Self {
+            enabled: Arc::new(RwLock::new(enabled)),
+            path,
+        })
+    }
+
+    fn get(&self) -> Result<bool, String> {
+        self.enabled
+            .read()
+            .map(|enabled| *enabled)
+            .map_err(|_| "marker creation setting is unavailable".to_string())
+    }
+
+    fn save(&self, enabled: bool) -> Result<(), String> {
+        if let Some(parent) = self.path.parent() {
+            fs::create_dir_all(parent).map_err(|error| error.to_string())?;
+        }
+        fs::write(&self.path, if enabled { "on\n" } else { "off\n" })
+            .map_err(|error| error.to_string())?;
+        *self
+            .enabled
+            .write()
+            .map_err(|_| "marker creation setting is unavailable".to_string())? = enabled;
+        Ok(())
+    }
+}
+
 impl ReaperOscSettings {
     fn load(path: PathBuf) -> Result<Self, std::io::Error> {
         let mut config = reaper_osc::ReaperOscConfig::default();
@@ -557,6 +599,21 @@ fn save_marker_mode(
 }
 
 #[tauri::command]
+fn get_marker_creation_enabled(
+    settings: tauri::State<'_, MarkerCreationSettings>,
+) -> Result<bool, String> {
+    settings.get()
+}
+
+#[tauri::command]
+fn save_marker_creation_enabled(
+    enabled: bool,
+    settings: tauri::State<'_, MarkerCreationSettings>,
+) -> Result<(), String> {
+    settings.save(enabled)
+}
+
+#[tauri::command]
 fn list_midi_inputs() -> Result<Vec<String>, String> {
     let midi_input =
         midir::MidiInput::new("dLive REAPER Link").map_err(|error| error.to_string())?;
@@ -753,6 +810,7 @@ fn start_midi_log(
     reaper_osc_settings: tauri::State<'_, ReaperOscSettings>,
     reaper_osc_feedback: tauri::State<'_, reaper_osc::ReaperOscFeedback>,
     marker_mode_settings: tauri::State<'_, MarkerModeSettings>,
+    marker_creation_settings: tauri::State<'_, MarkerCreationSettings>,
 ) -> Result<(), String> {
     let midi_input =
         midir::MidiInput::new("dLive REAPER Link").map_err(|error| error.to_string())?;
@@ -781,6 +839,7 @@ fn start_midi_log(
     let reaper_osc_config = Arc::clone(&reaper_osc_settings.config);
     let reaper_osc_feedback = reaper_osc_feedback.inner().clone();
     let marker_mode = Arc::clone(&marker_mode_settings.mode);
+    let marker_creation_enabled = Arc::clone(&marker_creation_settings.enabled);
     let connection = midi_input
         .connect(
             &port,
@@ -825,19 +884,43 @@ fn start_midi_log(
                     );
 
                     if should_create_marker(&recent_scene_recall, scene_number) {
-                        let decision = match marker_mode.read().map(|mode| *mode).unwrap_or(MarkerMode::Always) {
-                            MarkerMode::Always => match create_reaper_marker(&reaper_osc_config, &reaper_osc_feedback, &scene_name) {
-                                Ok(_) => format!("Scene {scene_number} \"{scene_name}\" - marker created. Marker Mode: Always."),
-                                Err(error) => format!("Scene {scene_number} \"{scene_name}\" - marker creation failed: {error}. Marker Mode: Always."),
-                            },
-                            MarkerMode::RecordingOnly => match reaper_osc_feedback.recording() {
-                                Some(true) => match create_reaper_marker(&reaper_osc_config, &reaper_osc_feedback, &scene_name) {
-                                    Ok(_) => format!("Scene {scene_number} \"{scene_name}\" - marker created. Marker Mode: Recording Only, REAPER was recording."),
-                                    Err(error) => format!("Scene {scene_number} \"{scene_name}\" - marker creation failed: {error}. Marker Mode: Recording Only, REAPER was recording."),
+                        let decision = if !marker_creation_enabled
+                            .read()
+                            .map(|enabled| *enabled)
+                            .unwrap_or(true)
+                        {
+                            format!(
+                                "Scene {scene_number} \"{scene_name}\" - marker skipped. Marker Creation: Off."
+                            )
+                        } else {
+                            match marker_mode
+                                .read()
+                                .map(|mode| *mode)
+                                .unwrap_or(MarkerMode::Always)
+                            {
+                                MarkerMode::Always => match create_reaper_marker(
+                                    &reaper_osc_config,
+                                    &reaper_osc_feedback,
+                                    &scene_name,
+                                ) {
+                                    Ok(_) => format!("Scene {scene_number} \"{scene_name}\" - marker created. Marker Mode: Always."),
+                                    Err(error) => format!("Scene {scene_number} \"{scene_name}\" - marker creation failed: {error}. Marker Mode: Always."),
                                 },
-                                Some(false) => format!("Scene {scene_number} \"{scene_name}\" - marker skipped. Marker Mode: Recording Only, REAPER was not recording."),
-                                None => format!("Scene {scene_number} \"{scene_name}\" - marker skipped. Marker Mode: Recording Only, REAPER transport state unknown."),
-                            },
+                                MarkerMode::RecordingOnly => {
+                                    match reaper_osc_feedback.recording() {
+                                        Some(true) => match create_reaper_marker(
+                                            &reaper_osc_config,
+                                            &reaper_osc_feedback,
+                                            &scene_name,
+                                        ) {
+                                            Ok(_) => format!("Scene {scene_number} \"{scene_name}\" - marker created. Marker Mode: Recording Only, REAPER was recording."),
+                                            Err(error) => format!("Scene {scene_number} \"{scene_name}\" - marker creation failed: {error}. Marker Mode: Recording Only, REAPER was recording."),
+                                        },
+                                        Some(false) => format!("Scene {scene_number} \"{scene_name}\" - marker skipped. Marker Mode: Recording Only, REAPER was not recording."),
+                                        None => format!("Scene {scene_number} \"{scene_name}\" - marker skipped. Marker Mode: Recording Only, REAPER transport state unknown."),
+                                    }
+                                }
+                            }
                         };
                         let _ = app.emit("marker-decision", decision);
                     }
@@ -915,6 +998,7 @@ pub fn run() {
             let midi_input_selection = app_config_dir.join("selected_midi_input.txt");
             let reaper_osc_settings = app_config_dir.join("reaper_osc_settings.txt");
             let marker_mode_settings = app_config_dir.join("marker_mode.txt");
+            let marker_creation_settings = app_config_dir.join("marker_creation_enabled.txt");
             let scene_list_selection = app_config_dir.join("loaded_scene_list.txt");
             app.manage(SceneNames::load(&scene_file)?);
             app.manage(MidiInputSelection {
@@ -929,6 +1013,7 @@ pub fn run() {
             app.manage(reaper_osc_settings);
             app.manage(reaper_osc_feedback);
             app.manage(MarkerModeSettings::load(marker_mode_settings)?);
+            app.manage(MarkerCreationSettings::load(marker_creation_settings)?);
             app.manage(SceneListSelection {
                 path: scene_list_selection,
             });
@@ -942,6 +1027,8 @@ pub fn run() {
             save_reaper_osc_settings,
             get_marker_mode,
             save_marker_mode,
+            get_marker_creation_enabled,
+            save_marker_creation_enabled,
             get_scene_file_path,
             reveal_scene_file,
             get_scene_names_count,

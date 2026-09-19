@@ -12,7 +12,7 @@
     <main class="container">
       <header class="app-header">
         <h1>dLive &rarr; REAPER Link</h1>
-        <p>Setup complete</p>
+        <p>Live control</p>
       </header>
 
       <nav class="app-tabs" aria-label="App views" role="tablist">
@@ -27,26 +27,40 @@
           <h2 id="readiness-heading">Live Status</h2>
           <div class="readiness-items" role="status" aria-live="polite">
             <p id="readiness-midi-input">MIDI Input: Not selected</p>
-            <p id="readiness-dlive-link">dLive Link: Stopped</p>
+            <p id="readiness-dlive-link">dLive Listener: Stopped</p>
             <p id="readiness-reaper-osc">REAPER OSC: Check settings</p>
             <p id="readiness-scene-names">Loaded Scene List: No scene list loaded</p>
           </div>
         </section>
-        <section class="app-section" aria-labelledby="live-link-heading">
-          <h2 id="live-link-heading">dLive Link</h2>
+        <section class="app-section" aria-labelledby="live-listener-heading">
+          <h2 id="live-listener-heading">dLive Listener</h2>
+          <p class="live-control-note">Listens for dLive scene recalls.</p>
           <div class="control-row">
-            <button id="start-midi-log" type="button" disabled>Start dLive Link</button>
-            <button id="stop-midi-log" type="button" disabled>Stop dLive Link</button>
-            <label for="marker-mode">Marker Mode</label>
-            <select id="marker-mode">
-              <option value="always">Always</option>
-              <option value="recording_only">Recording Only</option>
-            </select>
+            <button id="start-midi-log" type="button" disabled>Start Listening</button>
+            <button id="stop-midi-log" type="button" disabled>Stop Listening</button>
           </div>
           <p id="midi-log-result" role="status" aria-live="polite"></p>
         </section>
+        <section class="app-section" aria-labelledby="marker-behavior-heading">
+          <h2 id="marker-behavior-heading">Marker Behavior</h2>
+          <p class="live-control-note">Controls whether detected scene recalls create REAPER markers and when they are allowed.</p>
+          <div class="marker-controls">
+            <label class="marker-setting-control" for="marker-creation-enabled">
+              <span>Marker Creation:</span>
+              <input id="marker-creation-enabled" type="checkbox" checked />
+              <span id="marker-creation-state">On</span>
+            </label>
+            <label class="marker-setting-control" for="marker-mode">
+              <span>Marker Mode:</span>
+              <select id="marker-mode">
+                <option value="always">Always</option>
+                <option value="recording_only">Recording Only</option>
+              </select>
+            </label>
+          </div>
+        </section>
         <section class="app-section" aria-labelledby="live-scene-heading">
-          <h2 id="live-scene-heading">Last Scene</h2>
+          <h2 id="live-scene-heading">Last Detected Scene</h2>
           <p id="midi-scene-result" role="status" aria-live="polite"></p>
           <p id="midi-scene-name-result" role="status" aria-live="polite"></p>
           <h3>Last Marker Result</h3>
@@ -56,7 +70,7 @@
 
       <section id="view-setup" class="app-view" role="tabpanel" aria-labelledby="tab-setup" hidden>
         <section class="app-section" aria-labelledby="midi-link-heading">
-          <h2 id="midi-link-heading">MIDI / dLive Link Setup</h2>
+          <h2 id="midi-link-heading">MIDI / dLive Listener Setup</h2>
         <div class="control-row">
           <button id="list-midi-inputs" type="button">Refresh MIDI Inputs</button>
           <label for="midi-input-select">MIDI input</label>

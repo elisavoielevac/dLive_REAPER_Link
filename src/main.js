@@ -63,6 +63,10 @@ window.addEventListener("DOMContentLoaded", () => {
   const testReaperConnectionButton = document.querySelector(
     "#test-reaper-connection",
   );
+  const markerCreationEnabled = document.querySelector(
+    "#marker-creation-enabled",
+  );
+  const markerCreationState = document.querySelector("#marker-creation-state");
   const markerMode = document.querySelector("#marker-mode");
   const reaperOscSettingsResult = document.querySelector(
     "#reaper-osc-settings-result",
@@ -179,7 +183,7 @@ window.addEventListener("DOMContentLoaded", () => {
       midiInputSelect.value ? "Ready" : "Not selected"
     }`;
     readinessDLiveLink.textContent =
-      `dLive Link: ${dLiveLinkRunning ? "Running" : "Stopped"}`;
+      `dLive Listener: ${dLiveLinkRunning ? "Listening" : "Stopped"}`;
     readinessReaperOsc.textContent = savedReaperOscTarget
       ? `REAPER OSC: Configured (${savedReaperOscTarget.host}:${savedReaperOscTarget.port})`
       : "REAPER OSC: Check settings";
@@ -237,6 +241,36 @@ window.addEventListener("DOMContentLoaded", () => {
   }
 
   void loadMarkerMode();
+
+  function updateMarkerCreationState() {
+    markerCreationState.textContent = markerCreationEnabled.checked ? "On" : "Off";
+  }
+
+  async function loadMarkerCreationEnabled() {
+    try {
+      markerCreationEnabled.checked = await invoke("get_marker_creation_enabled");
+      updateMarkerCreationState();
+    } catch (error) {
+      midiLogResult.textContent = `Could not load marker creation setting: ${error}`;
+    }
+  }
+
+  void loadMarkerCreationEnabled();
+
+  markerCreationEnabled.addEventListener("change", async () => {
+    markerCreationEnabled.disabled = true;
+    try {
+      await invoke("save_marker_creation_enabled", {
+        enabled: markerCreationEnabled.checked,
+      });
+      updateMarkerCreationState();
+    } catch (error) {
+      midiLogResult.textContent = `Could not save marker creation setting: ${error}`;
+      await loadMarkerCreationEnabled();
+    } finally {
+      markerCreationEnabled.disabled = false;
+    }
+  });
 
   markerMode.addEventListener("change", async () => {
     markerMode.disabled = true;
@@ -693,7 +727,7 @@ window.addEventListener("DOMContentLoaded", () => {
         midiResult.textContent = "Saved MIDI input not found";
       } else {
         midiResult.textContent = inputs.length
-          ? "Choose your Allen & Heath MIDI TCP input, then start dLive Link."
+          ? "Choose your Allen & Heath MIDI TCP input, then start listening."
           : "No MIDI inputs available";
       }
 
@@ -923,19 +957,19 @@ window.addEventListener("DOMContentLoaded", () => {
 
   startMidiLogButton.addEventListener("click", async () => {
     if (dLiveLinkRunning) {
-      midiLogResult.textContent = "dLive Link is already running";
+      midiLogResult.textContent = "dLive Listener is already running";
       return;
     }
 
     const portName = midiInputSelect.value;
 
     if (!portName) {
-      midiLogResult.textContent = "Select a MIDI input before starting dLive Link";
+      midiLogResult.textContent = "Select a MIDI input before starting the dLive Listener";
       return;
     }
 
     startMidiLogButton.disabled = true;
-    midiLogResult.textContent = "Starting dLive Link...";
+    midiLogResult.textContent = "Starting dLive Listener...";
     midiSceneResult.textContent = "";
     midiSceneNameResult.textContent = "";
     midiSceneDiagnostics.textContent = "";
@@ -968,10 +1002,10 @@ window.addEventListener("DOMContentLoaded", () => {
       await invoke("start_midi_log", { portName });
       dLiveLinkRunning = true;
       updateReadiness();
-      midiLogResult.textContent = "dLive Link running";
+      midiLogResult.textContent = "dLive Listener is listening for scene recalls";
       stopMidiLogButton.disabled = false;
     } catch (error) {
-      midiLogResult.textContent = `Could not start dLive Link: ${error}`;
+      midiLogResult.textContent = `Could not start dLive Listener: ${error}`;
     } finally {
       startMidiLogButton.disabled = dLiveLinkRunning;
     }
@@ -979,16 +1013,16 @@ window.addEventListener("DOMContentLoaded", () => {
 
   stopMidiLogButton.addEventListener("click", async () => {
     stopMidiLogButton.disabled = true;
-    midiLogResult.textContent = "Stopping dLive Link...";
+    midiLogResult.textContent = "Stopping dLive Listener...";
 
     try {
       await invoke("stop_midi_log");
       dLiveLinkRunning = false;
       updateReadiness();
       startMidiLogButton.disabled = !midiInputSelect.value;
-      midiLogResult.textContent = "dLive Link stopped";
+      midiLogResult.textContent = "dLive Listener stopped";
     } catch (error) {
-      midiLogResult.textContent = `Could not stop dLive Link: ${error}`;
+      midiLogResult.textContent = `Could not stop dLive Listener: ${error}`;
     } finally {
       stopMidiLogButton.disabled = !dLiveLinkRunning;
     }
