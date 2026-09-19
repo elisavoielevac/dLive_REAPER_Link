@@ -104,6 +104,7 @@ button:disabled {
 #scene-file-reveal-result,
 #scene-file-reload-result,
 #scene-editor-result,
+#scene-list-transfer-result,
 #midi-log-result,
 #midi-scene-result,
 #midi-scene-name-result {
@@ -151,7 +152,18 @@ button:disabled {
 .scene-list-actions {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem;
   margin-top: 0.75rem;
+}
+
+.scene-list-actions button {
+  flex: 0 0 auto;
+}
+
+.scene-list-note {
+  font-size: 0.875rem;
+  line-height: 1.5;
 }
 
 .scene-editor-note {
@@ -179,6 +191,37 @@ button:disabled {
 
 .scene-editor-panel[hidden] {
   display: none;
+}
+
+.scene-list-confirmation {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgb(17 24 39 / 0.65);
+}
+
+.scene-list-confirmation[hidden] {
+  display: none;
+}
+
+.scene-list-confirmation-dialog {
+  width: min(32rem, 100%);
+  border: 1px solid #cbd2d9;
+  border-radius: 6px;
+  padding: 1.25rem;
+  background: #f7f8fa;
+  box-shadow: 0 0.75rem 2rem rgb(17 24 39 / 0.35);
+}
+
+.scene-list-confirmation-actions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 1rem;
 }
 
 .scene-editor-confirmation {
@@ -244,6 +287,10 @@ button:disabled {
 }
 
 body.scene-editor-open {
+  overflow: hidden;
+}
+
+body.scene-list-import-open {
   overflow: hidden;
 }
 
@@ -336,6 +383,11 @@ input {
     background: #111827;
   }
 
+  .scene-list-confirmation-dialog {
+    border-color: #52606d;
+    background: #111827;
+  }
+
   .scene-editor-row {
     border-bottom-color: #374151;
   }
@@ -358,13 +410,19 @@ input {
   .control-row,
   .reaper-osc-settings,
   .scene-file-actions,
+  .scene-list-actions,
   .scene-editor-dialog-header,
   .scene-editor-actions,
-  .scene-editor-confirmation-actions {
+  .scene-editor-confirmation-actions,
+  .scene-list-confirmation-actions {
     align-items: stretch;
   }
 
   .scene-editor-panel {
+    padding: 0.5rem;
+  }
+
+  .scene-list-confirmation {
     padding: 0.5rem;
   }
 

@@ -174,6 +174,18 @@ impl SceneNames {
             .map_err(|error| error.to_string())?;
         self.reload()
     }
+
+    fn export_to(&self, destination: &Path) -> Result<(), String> {
+        let contents = fs::read_to_string(&self.path).map_err(|error| error.to_string())?;
+        fs::write(destination, contents).map_err(|error| error.to_string())
+    }
+
+    fn import_from(&self, source: &Path) -> Result<usize, String> {
+        let mut names = read_scene_names(source).map_err(|error| error.to_string())?;
+        names.truncate(SCENE_SLOT_COUNT);
+        names.resize(SCENE_SLOT_COUNT, String::new());
+        self.save(names)
+    }
 }
 
 fn read_scene_names(scene_file: &Path) -> Result<Vec<String>, std::io::Error> {
@@ -329,6 +341,22 @@ fn save_scene_names(
 }
 
 #[tauri::command]
+fn export_scene_list(
+    destination_path: String,
+    scene_names: tauri::State<'_, SceneNames>,
+) -> Result<(), String> {
+    scene_names.export_to(Path::new(&destination_path))
+}
+
+#[tauri::command]
+fn import_scene_list(
+    source_path: String,
+    scene_names: tauri::State<'_, SceneNames>,
+) -> Result<usize, String> {
+    scene_names.import_from(Path::new(&source_path))
+}
+
+#[tauri::command]
 fn start_midi_log(
     port_name: String,
     app: tauri::AppHandle,
@@ -410,6 +438,7 @@ fn test_reaper_osc_marker(
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .manage(MidiLogState::default())
         .setup(|app| {
@@ -436,6 +465,8 @@ pub fn run() {
             reload_scene_names,
             get_scene_name_entries,
             save_scene_names,
+            export_scene_list,
+            import_scene_list,
             start_midi_log,
             stop_midi_log,
             test_reaper_osc_marker

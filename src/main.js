@@ -1,4 +1,5 @@
 const { invoke } = window.__TAURI__.core;
+const { open: openFileDialog, save: saveFileDialog } = window.__TAURI__.dialog;
 
 window.addEventListener("DOMContentLoaded", () => {
   const reaperOscHost = document.querySelector("#reaper-osc-host");
@@ -28,6 +29,21 @@ window.addEventListener("DOMContentLoaded", () => {
     "#scene-file-reload-result",
   );
   const openSceneEditorButton = document.querySelector("#open-scene-editor");
+  const exportSceneListButton = document.querySelector("#export-scene-list");
+  const importSceneListButton = document.querySelector("#import-scene-list");
+  const sceneListTransferResult = document.querySelector(
+    "#scene-list-transfer-result",
+  );
+  const importSceneListConfirmation = document.querySelector(
+    "#import-scene-list-confirmation",
+  );
+  const importSceneListPath = document.querySelector("#import-scene-list-path");
+  const cancelSceneListImportButton = document.querySelector(
+    "#cancel-scene-list-import",
+  );
+  const confirmSceneListImportButton = document.querySelector(
+    "#confirm-scene-list-import",
+  );
   const sceneEditorPanel = document.querySelector("#scene-editor-panel");
   const closeSceneEditorButton = document.querySelector("#close-scene-editor");
   const discardSceneEditorConfirmation = document.querySelector(
@@ -54,6 +70,7 @@ window.addEventListener("DOMContentLoaded", () => {
   let savedReaperOscTarget;
   let sceneNamesCount;
   let sceneEditorDirty = false;
+  let pendingSceneListImportPath;
   let unlistenMidiMessages;
 
   function updateReadiness() {
@@ -217,6 +234,94 @@ window.addEventListener("DOMContentLoaded", () => {
     closeSceneEditorNow();
   }
 
+  function closeSceneListImportConfirmation() {
+    importSceneListConfirmation.hidden = true;
+    document.body.classList.remove("scene-list-import-open");
+    pendingSceneListImportPath = undefined;
+  }
+
+  async function exportSceneList() {
+    exportSceneListButton.disabled = true;
+    sceneListTransferResult.textContent = "Choose where to save the scene list backup...";
+
+    try {
+      const destinationPath = await saveFileDialog({
+        title: "Export Scene List",
+        defaultPath: "dLive_Scenes_export.txt",
+        filters: [{ name: "Text files", extensions: ["txt"] }],
+      });
+
+      if (!destinationPath) {
+        sceneListTransferResult.textContent = "Scene list export cancelled";
+        return;
+      }
+
+      await invoke("export_scene_list", { destinationPath });
+      sceneListTransferResult.textContent = "Scene list backup exported";
+    } catch (error) {
+      sceneListTransferResult.textContent = `Could not export scene list: ${error}`;
+    } finally {
+      exportSceneListButton.disabled = false;
+    }
+  }
+
+  async function selectSceneListImport() {
+    importSceneListButton.disabled = true;
+    sceneListTransferResult.textContent = "Choose a scene list to import...";
+
+    try {
+      const sourcePath = await openFileDialog({
+        title: "Import Scene List",
+        multiple: false,
+        directory: false,
+        filters: [{ name: "Text files", extensions: ["txt"] }],
+      });
+
+      if (!sourcePath || Array.isArray(sourcePath)) {
+        sceneListTransferResult.textContent = "Scene list import cancelled";
+        return;
+      }
+
+      pendingSceneListImportPath = sourcePath;
+      importSceneListPath.textContent = `Selected file: ${sourcePath}`;
+      importSceneListConfirmation.hidden = false;
+      document.body.classList.add("scene-list-import-open");
+      confirmSceneListImportButton.focus();
+    } catch (error) {
+      sceneListTransferResult.textContent = `Could not open scene list: ${error}`;
+    } finally {
+      importSceneListButton.disabled = false;
+    }
+  }
+
+  async function importSceneList() {
+    if (!pendingSceneListImportPath) {
+      return;
+    }
+
+    cancelSceneListImportButton.disabled = true;
+    confirmSceneListImportButton.disabled = true;
+    sceneListTransferResult.textContent = "Importing scene list...";
+
+    try {
+      sceneNamesCount = await invoke("import_scene_list", {
+        sourcePath: pendingSceneListImportPath,
+      });
+      updateReadiness();
+      sceneListTransferResult.textContent = "Scene list imported and reloaded";
+      closeSceneListImportConfirmation();
+
+      if (!sceneEditorPanel.hidden) {
+        await loadSceneEditor();
+      }
+    } catch (error) {
+      sceneListTransferResult.textContent = `Could not import scene list: ${error}`;
+    } finally {
+      cancelSceneListImportButton.disabled = false;
+      confirmSceneListImportButton.disabled = false;
+    }
+  }
+
   async function refreshMidiInputs() {
     midiButton.disabled = true;
     midiResult.textContent = "Refreshing MIDI inputs...";
@@ -324,6 +429,23 @@ window.addEventListener("DOMContentLoaded", () => {
 
   openSceneEditorButton.addEventListener("click", () => {
     void openSceneEditor();
+  });
+
+  exportSceneListButton.addEventListener("click", () => {
+    void exportSceneList();
+  });
+
+  importSceneListButton.addEventListener("click", () => {
+    void selectSceneListImport();
+  });
+
+  cancelSceneListImportButton.addEventListener("click", () => {
+    closeSceneListImportConfirmation();
+    sceneListTransferResult.textContent = "Scene list import cancelled";
+  });
+
+  confirmSceneListImportButton.addEventListener("click", () => {
+    void importSceneList();
   });
 
   closeSceneEditorButton.addEventListener("click", closeSceneEditor);
