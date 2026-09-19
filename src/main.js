@@ -65,6 +65,9 @@ window.addEventListener("DOMContentLoaded", () => {
   const midiLogResult = document.querySelector("#midi-log-result");
   const midiSceneResult = document.querySelector("#midi-scene-result");
   const midiSceneNameResult = document.querySelector("#midi-scene-name-result");
+  const midiSceneDiagnostics = document.querySelector(
+    "#midi-scene-diagnostics",
+  );
   const midiLog = document.querySelector("#midi-log");
   let dLiveLinkRunning = false;
   let savedReaperOscTarget;
@@ -497,6 +500,7 @@ window.addEventListener("DOMContentLoaded", () => {
     midiLogResult.textContent = "Starting dLive Link...";
     midiSceneResult.textContent = "";
     midiSceneNameResult.textContent = "";
+    midiSceneDiagnostics.textContent = "";
     midiLog.textContent = "";
 
     try {
@@ -510,9 +514,11 @@ window.addEventListener("DOMContentLoaded", () => {
         await window.__TAURI__.event.listen(
           "midi-scene-recall",
           (event) => {
-            const [sceneNumber, sceneName] = event.payload;
+            const [sceneNumber, sceneName, program, channel, bank, bankLsb] =
+              event.payload;
             midiSceneResult.textContent = `Detected scene ${sceneNumber}`;
             midiSceneNameResult.textContent = `Scene name: ${sceneName}`;
+            midiSceneDiagnostics.textContent = `Scene recall: raw Program Change ${program}, MIDI channel ${channel}, bank ${bank} (LSB ${bankLsb}), decoded scene ${sceneNumber}, ${sceneName}`;
           },
         );
       }

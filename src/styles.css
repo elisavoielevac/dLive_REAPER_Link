@@ -107,7 +107,8 @@ button:disabled {
 #scene-list-transfer-result,
 #midi-log-result,
 #midi-scene-result,
-#midi-scene-name-result {
+#midi-scene-name-result,
+#midi-scene-diagnostics {
   min-height: 1.5rem;
   overflow-wrap: anywhere;
 }

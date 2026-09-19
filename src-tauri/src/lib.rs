@@ -9,11 +9,37 @@ use tauri_plugin_opener::OpenerExt;
 
 const DUPLICATE_SCENE_RECALL_WINDOW: Duration = Duration::from_millis(250);
 const SCENE_SLOT_COUNT: usize = 500;
+const DLIVE_SCENE_RECALL_STATUS: u8 = 0xCB;
+const DLIVE_BANK_SELECT_STATUS: u8 = 0xBB;
+const MIDI_BANK_SELECT_MSB: u8 = 0;
+const MIDI_BANK_SELECT_LSB: u8 = 32;
+
+#[derive(Default)]
+struct BankSelectState {
+    msb: u8,
+    lsb: u8,
+}
+
+impl BankSelectState {
+    fn update(&mut self, controller: u8, value: u8) {
+        match controller {
+            MIDI_BANK_SELECT_MSB => self.msb = value,
+            MIDI_BANK_SELECT_LSB => self.lsb = value,
+            _ => {}
+        }
+    }
+
+    fn d_live_bank(&self) -> (u8, u8) {
+        // dLive uses the Bank Select MSB as its 128-scene bank number.
+        (self.msb, self.lsb)
+    }
+}
 
 #[derive(Default)]
 struct MidiLogState {
     connection: Mutex<Option<midir::MidiInputConnection<()>>>,
     recent_scene_recall: Arc<Mutex<Option<(u16, Instant)>>>,
+    bank_select: Arc<Mutex<BankSelectState>>,
 }
 
 struct MidiInputSelection {
@@ -215,6 +241,11 @@ fn scene_name(scene_names: &RwLock<Vec<String>>, scene_number: u16) -> String {
         .unwrap_or_else(|| format!("Unnamed scene {scene_number}"))
 }
 
+fn decode_scene_number(bank_number: u8, program: u8) -> Option<u16> {
+    let scene_number = u16::from(bank_number) * 128 + u16::from(program) + 1;
+    (usize::from(scene_number) <= SCENE_SLOT_COUNT).then_some(scene_number)
+}
+
 fn should_create_marker(
     recent_scene_recall: &Mutex<Option<(u16, Instant)>>,
     scene_number: u16,
@@ -380,7 +411,13 @@ fn start_midi_log(
         return Err("dLive Link is already running".to_string());
     }
 
+    *state
+        .bank_select
+        .lock()
+        .map_err(|_| "MIDI bank state is unavailable".to_string())? = BankSelectState::default();
+
     let recent_scene_recall = Arc::clone(&state.recent_scene_recall);
+    let bank_select = Arc::clone(&state.bank_select);
     let scene_names = Arc::clone(&scene_names.names);
     let reaper_osc_config = Arc::clone(&reaper_osc_settings.config);
     let connection = midi_input
@@ -396,10 +433,35 @@ fn start_midi_log(
 
                 let _ = app.emit("midi-message", raw_message);
 
-                if let [0xCB, program, ..] = message {
-                    let scene_number = u16::from(*program) + 1;
+                if let [DLIVE_BANK_SELECT_STATUS, controller, value, ..] = message {
+                    if matches!(*controller, MIDI_BANK_SELECT_MSB | MIDI_BANK_SELECT_LSB) {
+                        if let Ok(mut bank_select) = bank_select.lock() {
+                            bank_select.update(*controller, *value);
+                        }
+                    }
+                }
+
+                if let [DLIVE_SCENE_RECALL_STATUS, program, ..] = message {
+                    let (bank_number, bank_lsb) = bank_select
+                        .lock()
+                        .map(|bank_select| bank_select.d_live_bank())
+                        .unwrap_or_default();
+                    let Some(scene_number) = decode_scene_number(bank_number, *program) else {
+                        return;
+                    };
                     let scene_name = scene_name(&scene_names, scene_number);
-                    let _ = app.emit("midi-scene-recall", (scene_number, scene_name.clone()));
+                    let channel = (DLIVE_SCENE_RECALL_STATUS & 0x0F) + 1;
+                    let _ = app.emit(
+                        "midi-scene-recall",
+                        (
+                            scene_number,
+                            scene_name.clone(),
+                            *program,
+                            channel,
+                            bank_number,
+                            bank_lsb,
+                        ),
+                    );
 
                     if should_create_marker(&recent_scene_recall, scene_number) {
                         let _ = create_reaper_marker(&reaper_osc_config, &scene_name);
@@ -413,6 +475,26 @@ fn start_midi_log(
     *active_connection = Some(connection);
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::decode_scene_number;
+
+    #[test]
+    fn decodes_banked_dlive_scene_numbers() {
+        assert_eq!(decode_scene_number(0, 0), Some(1));
+        assert_eq!(decode_scene_number(0, 127), Some(128));
+        assert_eq!(decode_scene_number(1, 0), Some(129));
+        assert_eq!(decode_scene_number(1, 1), Some(130));
+        assert_eq!(decode_scene_number(1, 127), Some(256));
+        assert_eq!(decode_scene_number(2, 0), Some(257));
+    }
+
+    #[test]
+    fn ignores_scene_numbers_beyond_the_scene_list() {
+        assert_eq!(decode_scene_number(3, 116), None);
+    }
 }
 
 #[tauri::command]
