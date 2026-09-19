@@ -36,6 +36,7 @@ window.addEventListener("DOMContentLoaded", () => {
     "#scene-list-transfer-result",
   );
   const sceneBackupName = document.querySelector("#scene-backup-name");
+  const createSceneListButton = document.querySelector("#create-scene-list");
   const saveSceneListBackupButton = document.querySelector(
     "#save-scene-list-backup",
   );
@@ -93,6 +94,9 @@ window.addEventListener("DOMContentLoaded", () => {
   );
   const saveSceneListAsButton = document.querySelector(
     "#save-scene-list-as",
+  );
+  const createSceneListFromEditorButton = document.querySelector(
+    "#create-scene-list-from-editor",
   );
   const sceneEditorResult = document.querySelector("#scene-editor-result");
   const midiInputSelect = document.querySelector("#midi-input-select");
@@ -253,6 +257,7 @@ window.addEventListener("DOMContentLoaded", () => {
   async function loadSceneEditor() {
     saveSceneNamesButton.disabled = true;
     saveSceneListAsButton.disabled = true;
+    createSceneListFromEditorButton.disabled = true;
     sceneEditorResult.textContent = "Loading scene list...";
 
     try {
@@ -284,6 +289,7 @@ window.addEventListener("DOMContentLoaded", () => {
       sceneEditorResult.textContent = "";
       saveSceneNamesButton.disabled = false;
       saveSceneListAsButton.disabled = false;
+      createSceneListFromEditorButton.disabled = false;
     } catch (error) {
       sceneEditorResult.textContent = `Could not load scene list: ${error}`;
     }
@@ -488,6 +494,36 @@ window.addEventListener("DOMContentLoaded", () => {
     }
   }
 
+  async function createSceneList(name, result) {
+    if (!name) {
+      result.textContent = "Enter a name for the new scene list";
+      return false;
+    }
+
+    result.textContent = "Creating new scene list...";
+    try {
+      const [sceneListName, count] = await invoke("create_scene_list", {
+        name,
+      });
+      loadedSceneListName = sceneListName;
+      sceneNamesCount = count;
+      updateSceneListDisplay();
+      updateReadiness();
+      await refreshSceneListBackups(false);
+      sceneListBackups.value = sceneListName;
+      restoreSceneListBackupButton.disabled = false;
+      result.textContent = "New scene list created and loaded: " + sceneListName;
+
+      if (!sceneEditorPanel.hidden) {
+        await loadSceneEditor();
+      }
+      return true;
+    } catch (error) {
+      result.textContent = `Could not create scene list: ${error}`;
+      return false;
+    }
+  }
+
   function closeSceneListBackupRestoreConfirmation() {
     restoreSceneListBackupConfirmation.hidden = true;
     document.body.classList.remove("scene-list-backup-restore-open");
@@ -672,8 +708,8 @@ window.addEventListener("DOMContentLoaded", () => {
     sceneEditorResult.textContent = "Saving new scene list...";
 
     try {
-      sceneNamesCount = await invoke("save_scene_names", { names });
-      const sceneListName = await invoke("save_scene_list_as", { name });
+      const sceneListName = await invoke("save_scene_list_as", { name, names });
+      sceneNamesCount = await invoke("get_scene_names_count");
       loadedSceneListName = sceneListName;
       sceneEditorSaveAsName.value = "";
       sceneEditorDirty = false;
@@ -690,6 +726,36 @@ window.addEventListener("DOMContentLoaded", () => {
       saveSceneListAsButton.disabled = false;
       closeSceneEditorButton.disabled = false;
     }
+  });
+
+  createSceneListButton.addEventListener("click", async () => {
+    createSceneListButton.disabled = true;
+    const created = await createSceneList(
+      sceneBackupName.value.trim(),
+      sceneListBackupResult,
+    );
+    if (created) {
+      sceneBackupName.value = "";
+    }
+    createSceneListButton.disabled = false;
+  });
+
+  createSceneListFromEditorButton.addEventListener("click", async () => {
+    if (sceneEditorDirty) {
+      sceneEditorResult.textContent =
+        "Save or discard your edits before creating a new scene list";
+      return;
+    }
+
+    createSceneListFromEditorButton.disabled = true;
+    const created = await createSceneList(
+      sceneEditorSaveAsName.value.trim(),
+      sceneEditorResult,
+    );
+    if (created) {
+      sceneEditorSaveAsName.value = "";
+    }
+    createSceneListFromEditorButton.disabled = false;
   });
 
   openSceneEditorButton.addEventListener("click", () => {

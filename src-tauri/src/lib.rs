@@ -277,23 +277,28 @@ impl SceneNames {
         Ok(scene_lists)
     }
 
-    fn save_as_scene_list(&self, name: &str) -> Result<String, String> {
+    fn save_as_scene_list(&self, name: &str, names: Option<Vec<String>>) -> Result<String, String> {
         fs::create_dir_all(&self.scene_lists_dir).map_err(|error| error.to_string())?;
 
         let base_name = sanitize_scene_list_name(name);
         if base_name.is_empty() {
             return Err("scene list name is required".to_string());
         }
-
-        let mut scene_list_name = base_name.clone();
-        let mut suffix = 2;
-        while self.scene_list_path(&scene_list_name)?.exists() {
-            scene_list_name = format!("{base_name}-{suffix}");
-            suffix += 1;
+        if self.scene_list_path(&base_name)?.exists() {
+            return Err(
+                "a scene list with that name already exists; choose a different name".to_string(),
+            );
         }
 
-        self.save_current_to_scene_list(&scene_list_name)?;
-        Ok(scene_list_name)
+        match names {
+            Some(names) => self.write_scene_list(&base_name, &names)?,
+            None => self.save_current_to_scene_list(&base_name)?,
+        }
+        Ok(base_name)
+    }
+
+    fn create_scene_list(&self, name: &str) -> Result<String, String> {
+        self.save_as_scene_list(name, Some(vec![String::new(); SCENE_SLOT_COUNT]))
     }
 
     fn load_scene_list(&self, scene_list_name: &str) -> Result<usize, String> {
@@ -618,15 +623,30 @@ fn list_saved_scene_lists(
 #[tauri::command]
 fn save_scene_list_as(
     name: String,
+    names: Option<Vec<String>>,
     scene_names: tauri::State<'_, SceneNames>,
     scene_list_selection: tauri::State<'_, SceneListSelection>,
 ) -> Result<String, String> {
-    let scene_list_name = scene_names.save_as_scene_list(&name)?;
+    let scene_list_name = scene_names.save_as_scene_list(&name, names)?;
     scene_names.load_scene_list(&scene_list_name)?;
     scene_list_selection
         .save(&scene_list_name)
         .map_err(|error| error.to_string())?;
     Ok(scene_list_name)
+}
+
+#[tauri::command]
+fn create_scene_list(
+    name: String,
+    scene_names: tauri::State<'_, SceneNames>,
+    scene_list_selection: tauri::State<'_, SceneListSelection>,
+) -> Result<(String, usize), String> {
+    let scene_list_name = scene_names.create_scene_list(&name)?;
+    let count = scene_names.load_scene_list(&scene_list_name)?;
+    scene_list_selection
+        .save(&scene_list_name)
+        .map_err(|error| error.to_string())?;
+    Ok((scene_list_name, count))
 }
 
 #[tauri::command]
@@ -817,6 +837,7 @@ pub fn run() {
             get_loaded_scene_list,
             list_saved_scene_lists,
             save_scene_list_as,
+            create_scene_list,
             load_scene_list,
             start_midi_log,
             stop_midi_log,
