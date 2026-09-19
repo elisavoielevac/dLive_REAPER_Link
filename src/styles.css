@@ -37,6 +37,23 @@ body {
   text-align: center;
 }
 
+.readiness-summary {
+  border-top: 1px solid #cbd2d9;
+  padding: 1rem 0;
+}
+
+.readiness-items {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: 0.25rem 1rem;
+  margin-top: 0.5rem;
+}
+
+.readiness-items p {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
 .app-section {
   border-top: 1px solid #cbd2d9;
   padding: 1.25rem 0;
@@ -165,6 +182,7 @@ input {
   }
 
   .app-section,
+  .readiness-summary,
   select,
   input,
   #midi-log {

@@ -12,6 +12,9 @@ window.addEventListener("DOMContentLoaded", () => {
   const reaperOscSettingsResult = document.querySelector(
     "#reaper-osc-settings-result",
   );
+  const readinessMidiInput = document.querySelector("#readiness-midi-input");
+  const readinessDLiveLink = document.querySelector("#readiness-dlive-link");
+  const readinessReaperOsc = document.querySelector("#readiness-reaper-osc");
   const midiButton = document.querySelector("#list-midi-inputs");
   const midiResult = document.querySelector("#midi-inputs-result");
   const sceneFilePath = document.querySelector("#scene-file-path");
@@ -31,16 +34,33 @@ window.addEventListener("DOMContentLoaded", () => {
   const midiSceneNameResult = document.querySelector("#midi-scene-name-result");
   const midiLog = document.querySelector("#midi-log");
   let dLiveLinkRunning = false;
+  let savedReaperOscTarget;
   let unlistenMidiMessages;
+
+  function updateReadiness() {
+    readinessMidiInput.textContent = `MIDI Input: ${
+      midiInputSelect.value ? "selected" : "not selected"
+    }`;
+    readinessDLiveLink.textContent =
+      `dLive Link: ${dLiveLinkRunning ? "running" : "stopped"}`;
+    readinessReaperOsc.textContent = savedReaperOscTarget
+      ? `REAPER OSC: ${savedReaperOscTarget.host}:${savedReaperOscTarget.port}`
+      : "REAPER OSC: unavailable";
+  }
+
+  updateReadiness();
 
   async function loadReaperOscSettings() {
     try {
       const [host, port] = await invoke("get_reaper_osc_settings");
       reaperOscHost.value = host;
       reaperOscPort.value = port;
+      savedReaperOscTarget = { host, port };
+      updateReadiness();
     } catch (error) {
       reaperOscSettingsResult.textContent =
         `Could not load REAPER OSC settings: ${error}`;
+      updateReadiness();
     }
   }
 
@@ -61,6 +81,8 @@ window.addEventListener("DOMContentLoaded", () => {
 
     try {
       await invoke("save_reaper_osc_settings", { host, port });
+      savedReaperOscTarget = { host, port };
+      updateReadiness();
       reaperOscSettingsResult.textContent = "REAPER OSC settings saved";
     } catch (error) {
       reaperOscSettingsResult.textContent =
@@ -131,6 +153,7 @@ window.addEventListener("DOMContentLoaded", () => {
       }
 
       startMidiLogButton.disabled = dLiveLinkRunning || !midiInputSelect.value;
+      updateReadiness();
     } catch (error) {
       midiResult.textContent = `Could not refresh MIDI inputs: ${error}`;
     } finally {
@@ -174,6 +197,7 @@ window.addEventListener("DOMContentLoaded", () => {
   midiInputSelect.addEventListener("change", async () => {
     const portName = midiInputSelect.value;
     startMidiLogButton.disabled = dLiveLinkRunning || !portName;
+    updateReadiness();
 
     if (!portName) {
       return;
@@ -226,6 +250,7 @@ window.addEventListener("DOMContentLoaded", () => {
 
       await invoke("start_midi_log", { portName });
       dLiveLinkRunning = true;
+      updateReadiness();
       midiLogResult.textContent = "dLive Link running";
       stopMidiLogButton.disabled = false;
     } catch (error) {
@@ -242,6 +267,7 @@ window.addEventListener("DOMContentLoaded", () => {
     try {
       await invoke("stop_midi_log");
       dLiveLinkRunning = false;
+      updateReadiness();
       startMidiLogButton.disabled = !midiInputSelect.value;
       midiLogResult.textContent = "dLive Link stopped";
     } catch (error) {
