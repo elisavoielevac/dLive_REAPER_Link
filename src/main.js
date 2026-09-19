@@ -9,6 +9,7 @@ window.addEventListener("DOMContentLoaded", () => {
   const startMidiLogButton = document.querySelector("#start-midi-log");
   const midiLogResult = document.querySelector("#midi-log-result");
   const midiSceneResult = document.querySelector("#midi-scene-result");
+  const midiSceneNameResult = document.querySelector("#midi-scene-name-result");
   const midiLog = document.querySelector("#midi-log");
   let unlistenMidiMessages;
 
@@ -63,6 +64,7 @@ window.addEventListener("DOMContentLoaded", () => {
     startMidiLogButton.disabled = true;
     midiLogResult.textContent = "Starting MIDI log...";
     midiSceneResult.textContent = "";
+    midiSceneNameResult.textContent = "";
     midiLog.textContent = "";
 
     try {
@@ -76,7 +78,9 @@ window.addEventListener("DOMContentLoaded", () => {
         await window.__TAURI__.event.listen(
           "midi-scene-recall",
           (event) => {
-            midiSceneResult.textContent = `Detected scene ${event.payload}`;
+            const [sceneNumber, sceneName] = event.payload;
+            midiSceneResult.textContent = `Detected scene ${sceneNumber}`;
+            midiSceneNameResult.textContent = `Scene name: ${sceneName}`;
           },
         );
       }

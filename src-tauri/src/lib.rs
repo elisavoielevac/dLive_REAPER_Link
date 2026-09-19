@@ -8,6 +8,15 @@ struct MidiLogState {
     connection: Mutex<Option<midir::MidiInputConnection<()>>>,
 }
 
+fn temporary_scene_name(scene_number: u16) -> Option<&'static str> {
+    match scene_number {
+        1 => Some("Song 1"),
+        2 => Some("Song 2"),
+        10 => Some("Song 10"),
+        _ => None,
+    }
+}
+
 #[tauri::command]
 fn list_midi_inputs() -> Result<Vec<String>, String> {
     let midi_input =
@@ -59,7 +68,11 @@ fn start_midi_log(
                 let _ = app.emit("midi-message", raw_message);
 
                 if let [0xCB, program, ..] = message {
-                    let _ = app.emit("midi-scene-recall", u16::from(*program) + 1);
+                    let scene_number = u16::from(*program) + 1;
+                    let scene_name = temporary_scene_name(scene_number)
+                        .map(str::to_string)
+                        .unwrap_or_else(|| format!("Unnamed scene {scene_number}"));
+                    let _ = app.emit("midi-scene-recall", (scene_number, scene_name));
                 }
             },
             (),

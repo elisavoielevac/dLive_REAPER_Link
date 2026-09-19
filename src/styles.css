@@ -54,7 +54,8 @@ button:disabled {
 #test-reaper-osc-result,
 #midi-inputs-result,
 #midi-log-result,
-#midi-scene-result {
+#midi-scene-result,
+#midi-scene-name-result {
   min-height: 1.5rem;
   max-width: 36rem;
 }
