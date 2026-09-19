@@ -125,14 +125,21 @@ impl SceneNames {
         })
     }
 
-    fn reload(&self) -> Result<(), String> {
+    fn count(&self) -> Result<usize, String> {
+        self.names
+            .read()
+            .map(|names| names.len())
+            .map_err(|_| "scene names are unavailable".to_string())
+    }
+
+    fn reload(&self) -> Result<usize, String> {
         let names = read_scene_names(&self.path).map_err(|error| error.to_string())?;
         let mut loaded_names = self
             .names
             .write()
             .map_err(|_| "scene names are unavailable".to_string())?;
         *loaded_names = names;
-        Ok(())
+        Ok(loaded_names.len())
     }
 }
 
@@ -258,7 +265,12 @@ fn reveal_scene_file(
 }
 
 #[tauri::command]
-fn reload_scene_names(scene_names: tauri::State<'_, SceneNames>) -> Result<(), String> {
+fn get_scene_names_count(scene_names: tauri::State<'_, SceneNames>) -> Result<usize, String> {
+    scene_names.count()
+}
+
+#[tauri::command]
+fn reload_scene_names(scene_names: tauri::State<'_, SceneNames>) -> Result<usize, String> {
     scene_names.reload()
 }
 
@@ -366,6 +378,7 @@ pub fn run() {
             save_reaper_osc_settings,
             get_scene_file_path,
             reveal_scene_file,
+            get_scene_names_count,
             reload_scene_names,
             start_midi_log,
             stop_midi_log,

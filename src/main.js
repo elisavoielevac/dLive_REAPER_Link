@@ -15,6 +15,7 @@ window.addEventListener("DOMContentLoaded", () => {
   const readinessMidiInput = document.querySelector("#readiness-midi-input");
   const readinessDLiveLink = document.querySelector("#readiness-dlive-link");
   const readinessReaperOsc = document.querySelector("#readiness-reaper-osc");
+  const readinessSceneNames = document.querySelector("#readiness-scene-names");
   const midiButton = document.querySelector("#list-midi-inputs");
   const midiResult = document.querySelector("#midi-inputs-result");
   const sceneFilePath = document.querySelector("#scene-file-path");
@@ -35,6 +36,7 @@ window.addEventListener("DOMContentLoaded", () => {
   const midiLog = document.querySelector("#midi-log");
   let dLiveLinkRunning = false;
   let savedReaperOscTarget;
+  let sceneNamesCount;
   let unlistenMidiMessages;
 
   function updateReadiness() {
@@ -46,6 +48,9 @@ window.addEventListener("DOMContentLoaded", () => {
     readinessReaperOsc.textContent = savedReaperOscTarget
       ? `REAPER OSC: ${savedReaperOscTarget.host}:${savedReaperOscTarget.port}`
       : "REAPER OSC: unavailable";
+    readinessSceneNames.textContent = Number.isInteger(sceneNamesCount)
+      ? `Scene Names: ${sceneNamesCount} loaded`
+      : "Scene Names: not loaded";
   }
 
   updateReadiness();
@@ -118,6 +123,18 @@ window.addEventListener("DOMContentLoaded", () => {
 
   void loadSceneFilePath();
 
+  async function loadSceneNamesStatus() {
+    try {
+      sceneNamesCount = await invoke("get_scene_names_count");
+    } catch {
+      sceneNamesCount = undefined;
+    } finally {
+      updateReadiness();
+    }
+  }
+
+  void loadSceneNamesStatus();
+
   async function refreshMidiInputs() {
     midiButton.disabled = true;
     midiResult.textContent = "Refreshing MIDI inputs...";
@@ -183,7 +200,8 @@ window.addEventListener("DOMContentLoaded", () => {
     sceneFileReloadResult.textContent = "Reloading scene names...";
 
     try {
-      await invoke("reload_scene_names");
+      sceneNamesCount = await invoke("reload_scene_names");
+      updateReadiness();
       sceneFileReloadResult.textContent = "Scene names reloaded";
     } catch (error) {
       sceneFileReloadResult.textContent = `Could not reload scene names: ${error}`;
