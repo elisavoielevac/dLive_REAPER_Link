@@ -179,8 +179,8 @@ window.addEventListener("DOMContentLoaded", () => {
   async function loadSceneFilePath() {
     try {
       const path = await invoke("get_scene_file_path");
-      sceneFilePath.textContent = `Active scene list: ${path} (used for marker names)`;
-      sceneEditorFilePath.textContent = `Editing: ${path}`;
+      sceneFilePath.textContent = `Active scene list used for marker names: ${path}`;
+      sceneEditorFilePath.textContent = `Active file being edited: ${path}`;
     } catch (error) {
       sceneFilePath.textContent = `Could not load scene file path: ${error}`;
       sceneEditorFilePath.textContent = "Could not load active scene file path";
@@ -203,7 +203,7 @@ window.addEventListener("DOMContentLoaded", () => {
 
   async function loadSceneEditor() {
     saveSceneNamesButton.disabled = true;
-    sceneEditorResult.textContent = "Loading scene names...";
+    sceneEditorResult.textContent = "Loading active scene list...";
 
     try {
       const names = await invoke("get_scene_name_entries");
@@ -234,7 +234,7 @@ window.addEventListener("DOMContentLoaded", () => {
       sceneEditorResult.textContent = "";
       saveSceneNamesButton.disabled = false;
     } catch (error) {
-      sceneEditorResult.textContent = `Could not load scene names: ${error}`;
+      sceneEditorResult.textContent = `Could not load active scene list: ${error}`;
     }
   }
 
@@ -272,7 +272,7 @@ window.addEventListener("DOMContentLoaded", () => {
 
   async function exportSceneList() {
     exportSceneListButton.disabled = true;
-    sceneListTransferResult.textContent = "Choose where to save the scene list backup...";
+    sceneListTransferResult.textContent = "Choose where to save a copy of the active scene list...";
 
     try {
       const destinationPath = await saveFileDialog({
@@ -282,14 +282,14 @@ window.addEventListener("DOMContentLoaded", () => {
       });
 
       if (!destinationPath) {
-        sceneListTransferResult.textContent = "Scene list export cancelled";
+        sceneListTransferResult.textContent = "Export cancelled; active scene list unchanged";
         return;
       }
 
       await invoke("export_scene_list", { destinationPath });
-      sceneListTransferResult.textContent = "Scene list backup exported";
+      sceneListTransferResult.textContent = "Scene list exported; active scene list unchanged";
     } catch (error) {
-      sceneListTransferResult.textContent = `Could not export scene list: ${error}`;
+      sceneListTransferResult.textContent = `Could not export a copy of the active scene list: ${error}`;
     } finally {
       exportSceneListButton.disabled = false;
     }
@@ -297,7 +297,7 @@ window.addEventListener("DOMContentLoaded", () => {
 
   async function selectSceneListImport() {
     importSceneListButton.disabled = true;
-    sceneListTransferResult.textContent = "Choose a scene list to import...";
+    sceneListTransferResult.textContent = "Choose an external scene list to replace the active list...";
 
     try {
       const sourcePath = await openFileDialog({
@@ -308,17 +308,17 @@ window.addEventListener("DOMContentLoaded", () => {
       });
 
       if (!sourcePath || Array.isArray(sourcePath)) {
-        sceneListTransferResult.textContent = "Scene list import cancelled";
+        sceneListTransferResult.textContent = "Import cancelled; active scene list unchanged";
         return;
       }
 
       pendingSceneListImportPath = sourcePath;
-      importSceneListPath.textContent = `Selected file: ${sourcePath}`;
+      importSceneListPath.textContent = `External file: ${sourcePath}`;
       importSceneListConfirmation.hidden = false;
       document.body.classList.add("scene-list-import-open");
       confirmSceneListImportButton.focus();
     } catch (error) {
-      sceneListTransferResult.textContent = `Could not open scene list: ${error}`;
+      sceneListTransferResult.textContent = `Could not open an external scene list: ${error}`;
     } finally {
       importSceneListButton.disabled = false;
     }
@@ -331,21 +331,21 @@ window.addEventListener("DOMContentLoaded", () => {
 
     cancelSceneListImportButton.disabled = true;
     confirmSceneListImportButton.disabled = true;
-    sceneListTransferResult.textContent = "Importing scene list...";
+    sceneListTransferResult.textContent = "Replacing active scene list from import...";
 
     try {
       sceneNamesCount = await invoke("import_scene_list", {
         sourcePath: pendingSceneListImportPath,
       });
       updateReadiness();
-      sceneListTransferResult.textContent = "Scene list imported and reloaded";
+      sceneListTransferResult.textContent = "Active scene list replaced from import and reloaded";
       closeSceneListImportConfirmation();
 
       if (!sceneEditorPanel.hidden) {
         await loadSceneEditor();
       }
     } catch (error) {
-      sceneListTransferResult.textContent = `Could not import scene list: ${error}`;
+      sceneListTransferResult.textContent = `Could not replace the active scene list from import: ${error}`;
     } finally {
       cancelSceneListImportButton.disabled = false;
       confirmSceneListImportButton.disabled = false;
@@ -376,7 +376,7 @@ window.addEventListener("DOMContentLoaded", () => {
 
       if (showStatus) {
         sceneListBackupResult.textContent = backups.length
-          ? `${backups.length} scene list backup${backups.length === 1 ? "" : "s"} available`
+          ? `${backups.length} saved backup${backups.length === 1 ? "" : "s"} available`
           : "No saved scene list backups";
       }
     } catch (error) {
@@ -390,7 +390,7 @@ window.addEventListener("DOMContentLoaded", () => {
 
   async function saveSceneListBackup() {
     saveSceneListBackupButton.disabled = true;
-    sceneListBackupResult.textContent = "Saving scene list backup...";
+    sceneListBackupResult.textContent = "Saving app-managed scene list backup...";
 
     try {
       const backupName = await invoke("save_scene_list_backup", {
@@ -400,7 +400,7 @@ window.addEventListener("DOMContentLoaded", () => {
       await refreshSceneListBackups(false);
       sceneListBackups.value = backupName;
       restoreSceneListBackupButton.disabled = false;
-      sceneListBackupResult.textContent = `Scene list backup saved: ${backupName}`;
+      sceneListBackupResult.textContent = `Backup saved: ${backupName}. Active scene list unchanged`;
     } catch (error) {
       sceneListBackupResult.textContent = `Could not save scene list backup: ${error}`;
     } finally {
@@ -417,12 +417,12 @@ window.addEventListener("DOMContentLoaded", () => {
   function requestSceneListBackupRestore() {
     const backupName = sceneListBackups.value;
     if (!backupName) {
-      sceneListBackupResult.textContent = "Select a scene list backup to restore";
+      sceneListBackupResult.textContent = "Select a saved backup to restore to the active scene list";
       return;
     }
 
     pendingSceneListBackupName = backupName;
-    restoreSceneListBackupName.textContent = `Backup: ${backupName}`;
+    restoreSceneListBackupName.textContent = `Backup to restore: ${backupName}`;
     restoreSceneListBackupConfirmation.hidden = false;
     document.body.classList.add("scene-list-backup-restore-open");
     confirmSceneListBackupRestoreButton.focus();
@@ -435,21 +435,21 @@ window.addEventListener("DOMContentLoaded", () => {
 
     cancelSceneListBackupRestoreButton.disabled = true;
     confirmSceneListBackupRestoreButton.disabled = true;
-    sceneListBackupResult.textContent = "Restoring scene list backup...";
+    sceneListBackupResult.textContent = "Replacing active scene list from backup...";
 
     try {
       sceneNamesCount = await invoke("restore_scene_list_backup", {
         backupName: pendingSceneListBackupName,
       });
       updateReadiness();
-      sceneListBackupResult.textContent = "Scene list backup restored and reloaded";
+      sceneListBackupResult.textContent = "Backup restored to active scene list and reloaded";
       closeSceneListBackupRestoreConfirmation();
 
       if (!sceneEditorPanel.hidden) {
         await loadSceneEditor();
       }
     } catch (error) {
-      sceneListBackupResult.textContent = `Could not restore scene list backup: ${error}`;
+      sceneListBackupResult.textContent = `Could not restore backup to the active scene list: ${error}`;
     } finally {
       cancelSceneListBackupRestoreButton.disabled = false;
       confirmSceneListBackupRestoreButton.disabled = false;
@@ -503,14 +503,14 @@ window.addEventListener("DOMContentLoaded", () => {
 
   revealSceneFileButton.addEventListener("click", async () => {
     revealSceneFileButton.disabled = true;
-    sceneFileRevealResult.textContent = "Opening scene file location...";
+    sceneFileRevealResult.textContent = "Opening active scene list location...";
 
     try {
       await invoke("reveal_scene_file");
-      sceneFileRevealResult.textContent = "Scene file location opened";
+      sceneFileRevealResult.textContent = "Active scene list location opened";
     } catch (error) {
       sceneFileRevealResult.textContent =
-        `Could not open scene file location: ${error}`;
+        `Could not open active scene list location: ${error}`;
     } finally {
       revealSceneFileButton.disabled = false;
     }
@@ -518,17 +518,17 @@ window.addEventListener("DOMContentLoaded", () => {
 
   reloadSceneNamesButton.addEventListener("click", async () => {
     reloadSceneNamesButton.disabled = true;
-    sceneFileReloadResult.textContent = "Reloading scene names...";
+    sceneFileReloadResult.textContent = "Reloading active scene list...";
 
     try {
       sceneNamesCount = await invoke("reload_scene_names");
       updateReadiness();
-      sceneFileReloadResult.textContent = "Scene names reloaded";
+      sceneFileReloadResult.textContent = "Active scene list reloaded";
       if (!sceneEditorPanel.hidden) {
         await loadSceneEditor();
       }
     } catch (error) {
-      sceneFileReloadResult.textContent = `Could not reload scene names: ${error}`;
+      sceneFileReloadResult.textContent = `Could not reload active scene list: ${error}`;
     } finally {
       reloadSceneNamesButton.disabled = false;
     }
@@ -540,21 +540,21 @@ window.addEventListener("DOMContentLoaded", () => {
     );
 
     if (names.length !== 500) {
-      sceneEditorResult.textContent = "Could not save scene names: 500 scene slots are required";
+      sceneEditorResult.textContent = "Could not save active scene list: 500 scene slots are required";
       return;
     }
 
     saveSceneNamesButton.disabled = true;
     closeSceneEditorButton.disabled = true;
-    sceneEditorResult.textContent = "Saving 500 scene names...";
+    sceneEditorResult.textContent = "Saving active scene list...";
 
     try {
       sceneNamesCount = await invoke("save_scene_names", { names });
       updateReadiness();
       sceneEditorDirty = false;
-      sceneEditorResult.textContent = "Scene names saved and reloaded";
+      sceneEditorResult.textContent = "Active scene list saved and reloaded";
     } catch (error) {
-      sceneEditorResult.textContent = `Could not save scene names: ${error}`;
+      sceneEditorResult.textContent = `Could not save active scene list: ${error}`;
     } finally {
       saveSceneNamesButton.disabled = false;
       closeSceneEditorButton.disabled = false;
@@ -577,7 +577,7 @@ window.addEventListener("DOMContentLoaded", () => {
 
   cancelSceneListImportButton.addEventListener("click", () => {
     closeSceneListImportConfirmation();
-    sceneListTransferResult.textContent = "Scene list import cancelled";
+    sceneListTransferResult.textContent = "Import cancelled; active scene list unchanged";
   });
 
   confirmSceneListImportButton.addEventListener("click", () => {
@@ -603,7 +603,7 @@ window.addEventListener("DOMContentLoaded", () => {
 
   cancelSceneListBackupRestoreButton.addEventListener("click", () => {
     closeSceneListBackupRestoreConfirmation();
-    sceneListBackupResult.textContent = "Scene list backup restore cancelled";
+    sceneListBackupResult.textContent = "Restore cancelled; active scene list unchanged";
   });
 
   confirmSceneListBackupRestoreButton.addEventListener("click", () => {
