@@ -51,13 +51,9 @@
         </div>
         <p id="scene-file-reveal-result" role="status" aria-live="polite"></p>
         <p id="scene-file-reload-result" role="status" aria-live="polite"></p>
-        <div class="scene-editor-heading">
-          <h3>Scene List Editor</h3>
-          <button id="save-scene-names" type="button" disabled>Save Scene Names</button>
+        <div class="scene-list-actions">
+          <button id="open-scene-editor" type="button">Edit Scene List</button>
         </div>
-        <p class="scene-editor-note">Scene 1 maps to line 1 in dLive_Scenes.txt through scene 500 on line 500.</p>
-        <div id="scene-editor" class="scene-editor" aria-label="Scene name editor"></div>
-        <p id="scene-editor-result" role="status" aria-live="polite"></p>
       </section>
 
       <section class="app-section" aria-labelledby="reaper-connection-heading">
@@ -84,5 +80,23 @@
 
       <footer class="app-footer">dLive REAPER Link &middot; v0.1.0 &middot; Development build</footer>
     </main>
+
+    <div id="scene-editor-panel" class="scene-editor-panel" hidden>
+      <section class="scene-editor-dialog" role="dialog" aria-modal="true" aria-labelledby="scene-editor-heading">
+        <div class="scene-editor-dialog-header">
+          <h2 id="scene-editor-heading">Scene List Editor</h2>
+          <div class="scene-editor-actions">
+            <button id="save-scene-names" type="button" disabled>Save Scene Names</button>
+            <button id="close-scene-editor" type="button">Close Editor</button>
+          </div>
+        </div>
+        <p id="scene-editor-file-path" class="scene-editor-file-path"></p>
+        <p class="scene-editor-note">
+          Scene number = line number. Saving writes this active scene list file. Empty names are allowed.
+        </p>
+        <div id="scene-editor" class="scene-editor" aria-label="Scene name editor"></div>
+        <p id="scene-editor-result" role="status" aria-live="polite"></p>
+      </section>
+    </div>
   </body>
 </html>

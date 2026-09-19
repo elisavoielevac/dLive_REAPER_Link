@@ -148,16 +148,10 @@ button:disabled {
   min-width: 0;
 }
 
-.scene-editor-heading {
+.scene-list-actions {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-}
-
-.scene-editor-heading button {
-  flex: 0 0 auto;
+  margin-top: 0.75rem;
 }
 
 .scene-editor-note {
@@ -167,10 +161,59 @@ button:disabled {
 
 .scene-editor {
   display: grid;
-  max-height: 28rem;
+  height: min(60vh, 36rem);
   margin-top: 0.75rem;
   border: 1px solid #cbd2d9;
   overflow-y: auto;
+}
+
+.scene-editor-panel {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgb(17 24 39 / 0.55);
+}
+
+.scene-editor-panel[hidden] {
+  display: none;
+}
+
+.scene-editor-dialog {
+  width: min(62rem, 100%);
+  max-height: calc(100vh - 2rem);
+  overflow: auto;
+  border: 1px solid #cbd2d9;
+  border-radius: 6px;
+  padding: 1.25rem;
+  background: #f7f8fa;
+  box-shadow: 0 0.75rem 2rem rgb(17 24 39 / 0.3);
+}
+
+.scene-editor-dialog-header,
+.scene-editor-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.scene-editor-dialog-header {
+  justify-content: space-between;
+}
+
+.scene-editor-actions button {
+  flex: 0 0 auto;
+}
+
+.scene-editor-file-path {
+  overflow-wrap: anywhere;
+}
+
+body.scene-editor-open {
+  overflow: hidden;
 }
 
 .scene-editor-row {
@@ -248,8 +291,13 @@ input {
   select,
   input,
   #midi-log,
-  .scene-editor {
+  .scene-editor,
+  .scene-editor-dialog {
     border-color: #52606d;
+  }
+
+  .scene-editor-dialog {
+    background: #111827;
   }
 
   .scene-editor-row {
@@ -274,7 +322,17 @@ input {
   .control-row,
   .reaper-osc-settings,
   .scene-file-actions,
-  .scene-editor-heading {
+  .scene-editor-dialog-header,
+  .scene-editor-actions {
     align-items: stretch;
+  }
+
+  .scene-editor-panel {
+    padding: 0.5rem;
+  }
+
+  .scene-editor-dialog {
+    max-height: calc(100vh - 1rem);
+    padding: 1rem;
   }
 }

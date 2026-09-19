@@ -27,6 +27,10 @@ window.addEventListener("DOMContentLoaded", () => {
   const sceneFileReloadResult = document.querySelector(
     "#scene-file-reload-result",
   );
+  const openSceneEditorButton = document.querySelector("#open-scene-editor");
+  const sceneEditorPanel = document.querySelector("#scene-editor-panel");
+  const closeSceneEditorButton = document.querySelector("#close-scene-editor");
+  const sceneEditorFilePath = document.querySelector("#scene-editor-file-path");
   const sceneEditor = document.querySelector("#scene-editor");
   const saveSceneNamesButton = document.querySelector("#save-scene-names");
   const sceneEditorResult = document.querySelector("#scene-editor-result");
@@ -40,6 +44,7 @@ window.addEventListener("DOMContentLoaded", () => {
   let dLiveLinkRunning = false;
   let savedReaperOscTarget;
   let sceneNamesCount;
+  let sceneEditorDirty = false;
   let unlistenMidiMessages;
 
   function updateReadiness() {
@@ -119,8 +124,10 @@ window.addEventListener("DOMContentLoaded", () => {
     try {
       const path = await invoke("get_scene_file_path");
       sceneFilePath.textContent = `Scene file: ${path}`;
+      sceneEditorFilePath.textContent = `Editing: ${path}`;
     } catch (error) {
       sceneFilePath.textContent = `Could not load scene file path: ${error}`;
+      sceneEditorFilePath.textContent = "Could not load active scene file path";
     }
   }
 
@@ -167,6 +174,7 @@ window.addEventListener("DOMContentLoaded", () => {
       });
 
       sceneEditor.replaceChildren(rows);
+      sceneEditorDirty = false;
       sceneEditorResult.textContent = "";
       saveSceneNamesButton.disabled = false;
     } catch (error) {
@@ -174,7 +182,27 @@ window.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  void loadSceneEditor();
+  async function openSceneEditor() {
+    sceneEditorPanel.hidden = false;
+    document.body.classList.add("scene-editor-open");
+    await loadSceneFilePath();
+    await loadSceneEditor();
+  }
+
+  function closeSceneEditor() {
+    if (
+      sceneEditorDirty &&
+      !window.confirm("Discard unsaved scene name changes?")
+    ) {
+      return;
+    }
+
+    sceneEditorPanel.hidden = true;
+    document.body.classList.remove("scene-editor-open");
+    sceneEditor.replaceChildren();
+    sceneEditorResult.textContent = "";
+    sceneEditorDirty = false;
+  }
 
   async function refreshMidiInputs() {
     midiButton.disabled = true;
@@ -244,7 +272,9 @@ window.addEventListener("DOMContentLoaded", () => {
       sceneNamesCount = await invoke("reload_scene_names");
       updateReadiness();
       sceneFileReloadResult.textContent = "Scene names reloaded";
-      await loadSceneEditor();
+      if (!sceneEditorPanel.hidden) {
+        await loadSceneEditor();
+      }
     } catch (error) {
       sceneFileReloadResult.textContent = `Could not reload scene names: ${error}`;
     } finally {
@@ -263,17 +293,30 @@ window.addEventListener("DOMContentLoaded", () => {
     }
 
     saveSceneNamesButton.disabled = true;
+    closeSceneEditorButton.disabled = true;
     sceneEditorResult.textContent = "Saving 500 scene names...";
 
     try {
       sceneNamesCount = await invoke("save_scene_names", { names });
       updateReadiness();
+      sceneEditorDirty = false;
       sceneEditorResult.textContent = "Scene names saved and reloaded";
     } catch (error) {
       sceneEditorResult.textContent = `Could not save scene names: ${error}`;
     } finally {
       saveSceneNamesButton.disabled = false;
+      closeSceneEditorButton.disabled = false;
     }
+  });
+
+  openSceneEditorButton.addEventListener("click", () => {
+    void openSceneEditor();
+  });
+
+  closeSceneEditorButton.addEventListener("click", closeSceneEditor);
+
+  sceneEditor.addEventListener("input", () => {
+    sceneEditorDirty = true;
   });
 
   midiButton.addEventListener("click", refreshMidiInputs);
