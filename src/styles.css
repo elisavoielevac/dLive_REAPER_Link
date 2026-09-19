@@ -142,13 +142,51 @@ button:disabled {
   margin-top: 0.75rem;
 }
 
-.live-control-note {
-  font-size: 0.875rem;
-  line-height: 1.5;
+.live-controls {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+  width: 100%;
+  max-width: 26rem;
+  padding: 1.25rem 0;
 }
 
 .live-toggle-button {
-  min-width: 12rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  aspect-ratio: 1;
+  min-width: 0;
+  padding: 1rem;
+  text-align: center;
+}
+
+.live-toggle-label {
+  font-size: 0.875rem;
+}
+
+.live-toggle-state {
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+
+.live-toggle-button.is-listening,
+.live-toggle-button.is-always {
+  border-color: #0f766e;
+  color: #ffffff;
+  background: #0f766e;
+}
+
+.live-toggle-button.is-recording-only {
+  border-color: #9f1239;
+  color: #ffffff;
+  background: #9f1239;
+}
+
+.live-status {
+  padding-bottom: 1.25rem;
 }
 
 .reaper-osc-settings label,

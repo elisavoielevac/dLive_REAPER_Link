@@ -26,26 +26,23 @@
         <section class="readiness-summary" aria-labelledby="readiness-heading">
           <h2 id="readiness-heading">Live Status</h2>
           <div class="readiness-items" role="status" aria-live="polite">
-            <p id="readiness-midi-input">MIDI Input: Not selected</p>
-            <p id="readiness-dlive-link">dLive Listener: Stopped</p>
-            <p id="readiness-reaper-osc">REAPER OSC: Check settings</p>
             <p id="readiness-scene-names">Loaded Scene List: No scene list loaded</p>
+            <p id="readiness-midi-input">MIDI Input: Not selected</p>
+            <p id="readiness-reaper-osc">REAPER OSC: Check settings</p>
           </div>
         </section>
-        <section class="app-section" aria-labelledby="live-listener-heading">
-          <h2 id="live-listener-heading">dLive Listener</h2>
-          <p class="live-control-note">Listens for dLive scene recalls.</p>
-          <div class="control-row">
-            <button id="toggle-midi-listener" class="live-toggle-button" type="button" disabled>Start Listening</button>
-          </div>
+        <section class="live-controls" aria-label="Live controls">
+          <button id="toggle-midi-listener" class="live-toggle-button" type="button" disabled>
+            <span class="live-toggle-label">dLive Listener</span>
+            <span id="midi-listener-toggle-state" class="live-toggle-state">Start Listening</span>
+          </button>
+          <button id="toggle-marker-mode" class="live-toggle-button" type="button" disabled>
+            <span class="live-toggle-label">Marker Mode</span>
+            <span id="marker-mode-toggle-state" class="live-toggle-state">Always</span>
+          </button>
+        </section>
+        <section class="live-status">
           <p id="midi-log-result" role="status" aria-live="polite"></p>
-        </section>
-        <section class="app-section" aria-labelledby="marker-behavior-heading">
-          <h2 id="marker-behavior-heading">Marker Behavior</h2>
-          <p class="live-control-note">Controls when detected scene recalls create REAPER markers.</p>
-          <div class="control-row">
-            <button id="toggle-marker-mode" class="live-toggle-button" type="button" disabled>Marker Mode: Always</button>
-          </div>
           <p id="marker-mode-result" role="status" aria-live="polite" hidden></p>
         </section>
         <section class="app-section" aria-labelledby="live-scene-heading">

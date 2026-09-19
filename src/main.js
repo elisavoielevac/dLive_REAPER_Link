@@ -64,12 +64,14 @@ window.addEventListener("DOMContentLoaded", () => {
     "#test-reaper-connection",
   );
   const markerModeToggleButton = document.querySelector("#toggle-marker-mode");
+  const markerModeToggleState = document.querySelector(
+    "#marker-mode-toggle-state",
+  );
   const markerModeResult = document.querySelector("#marker-mode-result");
   const reaperOscSettingsResult = document.querySelector(
     "#reaper-osc-settings-result",
   );
   const readinessMidiInput = document.querySelector("#readiness-midi-input");
-  const readinessDLiveLink = document.querySelector("#readiness-dlive-link");
   const readinessReaperOsc = document.querySelector("#readiness-reaper-osc");
   const readinessSceneNames = document.querySelector("#readiness-scene-names");
   const midiButton = document.querySelector("#list-midi-inputs");
@@ -158,6 +160,9 @@ window.addEventListener("DOMContentLoaded", () => {
   const midiListenerToggleButton = document.querySelector(
     "#toggle-midi-listener",
   );
+  const midiListenerToggleState = document.querySelector(
+    "#midi-listener-toggle-state",
+  );
   const midiLogResult = document.querySelector("#midi-log-result");
   const midiSceneResult = document.querySelector("#midi-scene-result");
   const midiSceneNameResult = document.querySelector("#midi-scene-name-result");
@@ -181,8 +186,6 @@ window.addEventListener("DOMContentLoaded", () => {
     readinessMidiInput.textContent = `MIDI Input: ${
       midiInputSelect.value ? "Ready" : "Not selected"
     }`;
-    readinessDLiveLink.textContent =
-      `dLive Listener: ${dLiveLinkRunning ? "Listening" : "Stopped"}`;
     readinessReaperOsc.textContent = savedReaperOscTarget
       ? `REAPER OSC: Configured (${savedReaperOscTarget.host}:${savedReaperOscTarget.port})`
       : "REAPER OSC: Check settings";
@@ -190,23 +193,34 @@ window.addEventListener("DOMContentLoaded", () => {
       ? "Loaded Scene List: " +
         loadedSceneListName +
         (Number.isInteger(sceneNamesCount)
-          ? " (" + sceneNamesCount + " names loaded)"
+          ? " (" + sceneNamesCount + " scenes)"
           : "")
       : "Loaded Scene List: No scene list loaded";
   }
 
   function updateMidiListenerToggle() {
-    midiListenerToggleButton.textContent = dLiveLinkRunning
+    const state = dLiveLinkRunning
       ? "Stop Listening"
       : "Start Listening";
+    midiListenerToggleState.textContent = state;
+    midiListenerToggleButton.setAttribute(
+      "aria-label",
+      `dLive Listener: ${state}`,
+    );
+    midiListenerToggleButton.classList.toggle("is-listening", dLiveLinkRunning);
     midiListenerToggleButton.disabled =
       !dLiveLinkRunning && !midiInputSelect.value;
   }
 
   function updateMarkerModeToggle() {
-    markerModeToggleButton.textContent =
-      "Marker Mode: " +
-      (markerMode === "always" ? "Always" : "Recording Only");
+    const state = markerMode === "always" ? "Always" : "Recording Only";
+    markerModeToggleState.textContent = state;
+    markerModeToggleButton.setAttribute("aria-label", `Marker Mode: ${state}`);
+    markerModeToggleButton.classList.toggle(
+      "is-recording-only",
+      markerMode === "recording_only",
+    );
+    markerModeToggleButton.classList.toggle("is-always", markerMode === "always");
   }
 
   function updateSceneListDisplay() {

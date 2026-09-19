@@ -261,7 +261,7 @@ impl SceneNames {
     fn count(&self) -> Result<usize, String> {
         self.names
             .read()
-            .map(|names| names.len())
+            .map(|names| names.iter().filter(|name| !name.is_empty()).count())
             .map_err(|_| "scene names are unavailable".to_string())
     }
 
@@ -271,8 +271,9 @@ impl SceneNames {
             .names
             .write()
             .map_err(|_| "scene names are unavailable".to_string())?;
+        let count = names.iter().filter(|name| !name.is_empty()).count();
         *loaded_names = names;
-        Ok(loaded_names.len())
+        Ok(count)
     }
 
     fn editable_entries(&self) -> Result<Vec<String>, String> {
