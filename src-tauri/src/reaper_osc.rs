@@ -132,7 +132,7 @@ impl fmt::Display for ReaperOscError {
             Self::DecodeOsc(_) => write!(f, "failed to decode REAPER OSC feedback"),
             Self::MarkerNumberTimeout { timeout } => write!(
                 f,
-                "timed out after {:.1}s waiting for /lastmarker/number/str from REAPER",
+                "timed out after {:.1}s waiting for REAPER OSC feedback (/lastmarker/number/str). Check that REAPER OSC feedback is enabled and sending to local port 49102",
                 timeout.as_secs_f32()
             ),
         }
