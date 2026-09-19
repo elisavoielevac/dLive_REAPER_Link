@@ -7,8 +7,12 @@ window.addEventListener("DOMContentLoaded", () => {
   const midiResult = document.querySelector("#midi-inputs-result");
   const sceneFilePath = document.querySelector("#scene-file-path");
   const revealSceneFileButton = document.querySelector("#reveal-scene-file");
+  const reloadSceneNamesButton = document.querySelector("#reload-scene-names");
   const sceneFileRevealResult = document.querySelector(
     "#scene-file-reveal-result",
+  );
+  const sceneFileReloadResult = document.querySelector(
+    "#scene-file-reload-result",
   );
   const midiInputSelect = document.querySelector("#midi-input-select");
   const startMidiLogButton = document.querySelector("#start-midi-log");
@@ -40,6 +44,20 @@ window.addEventListener("DOMContentLoaded", () => {
       sceneFileRevealResult.textContent = `Error: ${error}`;
     } finally {
       revealSceneFileButton.disabled = false;
+    }
+  });
+
+  reloadSceneNamesButton.addEventListener("click", async () => {
+    reloadSceneNamesButton.disabled = true;
+    sceneFileReloadResult.textContent = "Reloading scene names...";
+
+    try {
+      await invoke("reload_scene_names");
+      sceneFileReloadResult.textContent = "Scene names reloaded";
+    } catch (error) {
+      sceneFileReloadResult.textContent = `Error: ${error}`;
+    } finally {
+      reloadSceneNamesButton.disabled = false;
     }
   });
 

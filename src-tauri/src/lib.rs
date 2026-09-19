@@ -2,7 +2,7 @@ pub mod reaper_osc;
 
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, RwLock};
 use std::time::{Duration, Instant};
 use tauri::{Emitter, Manager};
 use tauri_plugin_opener::OpenerExt;
@@ -16,7 +16,7 @@ struct MidiLogState {
 }
 
 struct SceneNames {
-    names: Arc<Vec<String>>,
+    names: Arc<RwLock<Vec<String>>>,
     path: PathBuf,
 }
 
@@ -30,19 +30,37 @@ impl SceneNames {
             fs::write(scene_file, include_str!("../dLive_Scenes.txt"))?;
         }
 
-        let names = fs::read_to_string(scene_file)?
-            .lines()
-            .map(|line| line.trim().to_string())
-            .collect();
-
         Ok(Self {
-            names: Arc::new(names),
+            names: Arc::new(RwLock::new(read_scene_names(scene_file)?)),
             path: scene_file.to_path_buf(),
         })
     }
+
+    fn reload(&self) -> Result<(), String> {
+        let names = read_scene_names(&self.path).map_err(|error| error.to_string())?;
+        let mut loaded_names = self
+            .names
+            .write()
+            .map_err(|_| "scene names are unavailable".to_string())?;
+        *loaded_names = names;
+        Ok(())
+    }
 }
 
-fn scene_name(scene_names: &[String], scene_number: u16) -> String {
+fn read_scene_names(scene_file: &Path) -> Result<Vec<String>, std::io::Error> {
+    fs::read_to_string(scene_file).map(|contents| {
+        contents
+            .lines()
+            .map(|line| line.trim().to_string())
+            .collect()
+    })
+}
+
+fn scene_name(scene_names: &RwLock<Vec<String>>, scene_number: u16) -> String {
+    let Ok(scene_names) = scene_names.read() else {
+        return format!("Unnamed scene {scene_number}");
+    };
+
     scene_names
         .get(usize::from(scene_number - 1))
         .filter(|name| !name.is_empty())
@@ -101,6 +119,11 @@ fn reveal_scene_file(
     app.opener()
         .reveal_item_in_dir(&scene_names.path)
         .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+fn reload_scene_names(scene_names: tauri::State<'_, SceneNames>) -> Result<(), String> {
+    scene_names.reload()
 }
 
 #[tauri::command]
@@ -184,6 +207,7 @@ pub fn run() {
             list_midi_inputs,
             get_scene_file_path,
             reveal_scene_file,
+            reload_scene_names,
             start_midi_log,
             test_reaper_osc_marker
         ])
