@@ -33,6 +33,50 @@ window.addEventListener("DOMContentLoaded", () => {
 
   void loadSceneFilePath();
 
+  async function refreshMidiInputs() {
+    midiButton.disabled = true;
+    midiResult.textContent = "Listing MIDI inputs...";
+
+    try {
+      const inputs = await invoke("list_midi_inputs");
+      const savedInput = await invoke("get_saved_midi_input");
+      const prompt = document.createElement("option");
+      prompt.value = "";
+      prompt.textContent = inputs.length
+        ? "Select MIDI input"
+        : "No MIDI inputs found";
+      midiInputSelect.replaceChildren(
+        prompt,
+        ...inputs.map((name) => {
+          const option = document.createElement("option");
+          option.value = name;
+          option.textContent = name;
+          return option;
+        }),
+      );
+      midiInputSelect.disabled = !inputs.length;
+
+      if (savedInput && inputs.includes(savedInput)) {
+        midiInputSelect.value = savedInput;
+        midiResult.textContent = inputs.join(", ");
+      } else if (savedInput) {
+        midiResult.textContent = "Saved MIDI input not found";
+      } else {
+        midiResult.textContent = inputs.length
+          ? inputs.join(", ")
+          : "No MIDI inputs found";
+      }
+
+      startMidiLogButton.disabled = dLiveLinkRunning || !midiInputSelect.value;
+    } catch (error) {
+      midiResult.textContent = `Error: ${error}`;
+    } finally {
+      midiButton.disabled = false;
+    }
+  }
+
+  void refreshMidiInputs();
+
   revealSceneFileButton.addEventListener("click", async () => {
     revealSceneFileButton.disabled = true;
     sceneFileRevealResult.textContent = "Revealing scene file...";
@@ -61,29 +105,20 @@ window.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  midiButton.addEventListener("click", async () => {
-    midiButton.disabled = true;
-    midiResult.textContent = "Listing MIDI inputs...";
+  midiButton.addEventListener("click", refreshMidiInputs);
+
+  midiInputSelect.addEventListener("change", async () => {
+    const portName = midiInputSelect.value;
+    startMidiLogButton.disabled = dLiveLinkRunning || !portName;
+
+    if (!portName) {
+      return;
+    }
 
     try {
-      const inputs = await invoke("list_midi_inputs");
-      midiResult.textContent = inputs.length
-        ? inputs.join(", ")
-        : "No MIDI inputs found";
-      midiInputSelect.replaceChildren(
-        ...inputs.map((name) => {
-          const option = document.createElement("option");
-          option.value = name;
-          option.textContent = name;
-          return option;
-        }),
-      );
-      midiInputSelect.disabled = !inputs.length;
-      startMidiLogButton.disabled = dLiveLinkRunning || !inputs.length;
+      await invoke("save_midi_input", { portName });
     } catch (error) {
       midiResult.textContent = `Error: ${error}`;
-    } finally {
-      midiButton.disabled = false;
     }
   });
 

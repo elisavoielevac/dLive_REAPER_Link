@@ -15,6 +15,31 @@ struct MidiLogState {
     recent_scene_recall: Arc<Mutex<Option<(u16, Instant)>>>,
 }
 
+struct MidiInputSelection {
+    path: PathBuf,
+}
+
+impl MidiInputSelection {
+    fn load(&self) -> Result<Option<String>, std::io::Error> {
+        match fs::read_to_string(&self.path) {
+            Ok(port_name) => {
+                let port_name = port_name.trim().to_string();
+                Ok((!port_name.is_empty()).then_some(port_name))
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(None),
+            Err(error) => Err(error),
+        }
+    }
+
+    fn save(&self, port_name: &str) -> Result<(), std::io::Error> {
+        if let Some(parent) = self.path.parent() {
+            fs::create_dir_all(parent)?;
+        }
+
+        fs::write(&self.path, port_name)
+    }
+}
+
 struct SceneNames {
     names: Arc<RwLock<Vec<String>>>,
     path: PathBuf,
@@ -104,6 +129,23 @@ fn list_midi_inputs() -> Result<Vec<String>, String> {
                 .map_err(|error| error.to_string())
         })
         .collect()
+}
+
+#[tauri::command]
+fn get_saved_midi_input(
+    selection: tauri::State<'_, MidiInputSelection>,
+) -> Result<Option<String>, String> {
+    selection.load().map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+fn save_midi_input(
+    port_name: String,
+    selection: tauri::State<'_, MidiInputSelection>,
+) -> Result<(), String> {
+    selection
+        .save(&port_name)
+        .map_err(|error| error.to_string())
 }
 
 #[tauri::command]
@@ -210,11 +252,17 @@ pub fn run() {
         .manage(MidiLogState::default())
         .setup(|app| {
             let scene_file = app.path().app_data_dir()?.join("dLive_Scenes.txt");
+            let midi_input_selection = app.path().app_config_dir()?.join("selected_midi_input.txt");
             app.manage(SceneNames::load(&scene_file)?);
+            app.manage(MidiInputSelection {
+                path: midi_input_selection,
+            });
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
             list_midi_inputs,
+            get_saved_midi_input,
+            save_midi_input,
             get_scene_file_path,
             reveal_scene_file,
             reload_scene_names,
