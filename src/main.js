@@ -39,7 +39,8 @@ window.addEventListener("DOMContentLoaded", () => {
       reaperOscHost.value = host;
       reaperOscPort.value = port;
     } catch (error) {
-      reaperOscSettingsResult.textContent = `Error: ${error}`;
+      reaperOscSettingsResult.textContent =
+        `Could not load REAPER OSC settings: ${error}`;
     }
   }
 
@@ -62,7 +63,8 @@ window.addEventListener("DOMContentLoaded", () => {
       await invoke("save_reaper_osc_settings", { host, port });
       reaperOscSettingsResult.textContent = "REAPER OSC settings saved";
     } catch (error) {
-      reaperOscSettingsResult.textContent = `Error: ${error}`;
+      reaperOscSettingsResult.textContent =
+        `Could not save REAPER OSC settings: ${error}`;
     } finally {
       saveReaperOscSettingsButton.disabled = false;
     }
@@ -70,14 +72,14 @@ window.addEventListener("DOMContentLoaded", () => {
 
   testReaperConnectionButton.addEventListener("click", async () => {
     testReaperConnectionButton.disabled = true;
-    reaperOscSettingsResult.textContent = "Testing saved REAPER OSC settings...";
+    reaperOscSettingsResult.textContent = "Testing REAPER connection...";
 
     try {
       const markerNumber = await invoke("test_reaper_osc_marker");
       reaperOscSettingsResult.textContent =
-        `REAPER connection confirmed (marker ${markerNumber})`;
+        `REAPER connection test marker created (marker ${markerNumber})`;
     } catch (error) {
-      reaperOscSettingsResult.textContent = `REAPER connection failed: ${error}`;
+      reaperOscSettingsResult.textContent = `REAPER connection test failed: ${error}`;
     } finally {
       testReaperConnectionButton.disabled = false;
     }
@@ -88,7 +90,7 @@ window.addEventListener("DOMContentLoaded", () => {
       const path = await invoke("get_scene_file_path");
       sceneFilePath.textContent = `Scene file: ${path}`;
     } catch (error) {
-      sceneFilePath.textContent = `Scene file error: ${error}`;
+      sceneFilePath.textContent = `Could not load scene file path: ${error}`;
     }
   }
 
@@ -96,7 +98,7 @@ window.addEventListener("DOMContentLoaded", () => {
 
   async function refreshMidiInputs() {
     midiButton.disabled = true;
-    midiResult.textContent = "Listing MIDI inputs...";
+    midiResult.textContent = "Refreshing MIDI inputs...";
 
     try {
       const inputs = await invoke("list_midi_inputs");
@@ -119,18 +121,18 @@ window.addEventListener("DOMContentLoaded", () => {
 
       if (savedInput && inputs.includes(savedInput)) {
         midiInputSelect.value = savedInput;
-        midiResult.textContent = inputs.join(", ");
+        midiResult.textContent = `Saved MIDI input restored: ${savedInput}`;
       } else if (savedInput) {
         midiResult.textContent = "Saved MIDI input not found";
       } else {
         midiResult.textContent = inputs.length
-          ? inputs.join(", ")
-          : "No MIDI inputs found";
+          ? `MIDI inputs available: ${inputs.join(", ")}`
+          : "No MIDI inputs available";
       }
 
       startMidiLogButton.disabled = dLiveLinkRunning || !midiInputSelect.value;
     } catch (error) {
-      midiResult.textContent = `Error: ${error}`;
+      midiResult.textContent = `Could not refresh MIDI inputs: ${error}`;
     } finally {
       midiButton.disabled = false;
     }
@@ -140,13 +142,14 @@ window.addEventListener("DOMContentLoaded", () => {
 
   revealSceneFileButton.addEventListener("click", async () => {
     revealSceneFileButton.disabled = true;
-    sceneFileRevealResult.textContent = "Revealing scene file...";
+    sceneFileRevealResult.textContent = "Opening scene file location...";
 
     try {
       await invoke("reveal_scene_file");
-      sceneFileRevealResult.textContent = "Scene file revealed";
+      sceneFileRevealResult.textContent = "Scene file location opened";
     } catch (error) {
-      sceneFileRevealResult.textContent = `Error: ${error}`;
+      sceneFileRevealResult.textContent =
+        `Could not open scene file location: ${error}`;
     } finally {
       revealSceneFileButton.disabled = false;
     }
@@ -160,7 +163,7 @@ window.addEventListener("DOMContentLoaded", () => {
       await invoke("reload_scene_names");
       sceneFileReloadResult.textContent = "Scene names reloaded";
     } catch (error) {
-      sceneFileReloadResult.textContent = `Error: ${error}`;
+      sceneFileReloadResult.textContent = `Could not reload scene names: ${error}`;
     } finally {
       reloadSceneNamesButton.disabled = false;
     }
@@ -178,8 +181,9 @@ window.addEventListener("DOMContentLoaded", () => {
 
     try {
       await invoke("save_midi_input", { portName });
+      midiResult.textContent = "MIDI input saved";
     } catch (error) {
-      midiResult.textContent = `Error: ${error}`;
+      midiResult.textContent = `Could not save MIDI input: ${error}`;
     }
   });
 
@@ -192,12 +196,12 @@ window.addEventListener("DOMContentLoaded", () => {
     const portName = midiInputSelect.value;
 
     if (!portName) {
-      midiLogResult.textContent = "Select a MIDI input first";
+      midiLogResult.textContent = "Select a MIDI input before starting dLive Link";
       return;
     }
 
     startMidiLogButton.disabled = true;
-    midiLogResult.textContent = "Starting MIDI log...";
+    midiLogResult.textContent = "Starting dLive Link...";
     midiSceneResult.textContent = "";
     midiSceneNameResult.textContent = "";
     midiLog.textContent = "";
@@ -222,10 +226,10 @@ window.addEventListener("DOMContentLoaded", () => {
 
       await invoke("start_midi_log", { portName });
       dLiveLinkRunning = true;
-      midiLogResult.textContent = `Logging ${portName}`;
+      midiLogResult.textContent = "dLive Link running";
       stopMidiLogButton.disabled = false;
     } catch (error) {
-      midiLogResult.textContent = `Error: ${error}`;
+      midiLogResult.textContent = `Could not start dLive Link: ${error}`;
     } finally {
       startMidiLogButton.disabled = dLiveLinkRunning;
     }
@@ -241,7 +245,7 @@ window.addEventListener("DOMContentLoaded", () => {
       startMidiLogButton.disabled = !midiInputSelect.value;
       midiLogResult.textContent = "dLive Link stopped";
     } catch (error) {
-      midiLogResult.textContent = `Error: ${error}`;
+      midiLogResult.textContent = `Could not stop dLive Link: ${error}`;
     } finally {
       stopMidiLogButton.disabled = !dLiveLinkRunning;
     }
