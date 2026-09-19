@@ -101,6 +101,7 @@ button:disabled {
 #midi-inputs-result,
 #reaper-osc-settings-result,
 #scene-file-path,
+#scene-file-location,
 #scene-file-reveal-result,
 #scene-file-reload-result,
 #scene-editor-result,
@@ -149,6 +150,10 @@ button:disabled {
 
 .scene-file-actions #scene-file-path {
   min-width: 0;
+}
+
+.scene-file-location {
+  overflow-wrap: anywhere;
 }
 
 .scene-list-actions {

@@ -21,7 +21,7 @@
           <p id="readiness-midi-input">MIDI Input: Not selected</p>
           <p id="readiness-dlive-link">dLive Link: Stopped</p>
           <p id="readiness-reaper-osc">REAPER OSC: Check settings</p>
-          <p id="readiness-scene-names">Scene Names: Not loaded</p>
+          <p id="readiness-scene-names">Loaded Scene List: Default Scene List (not loaded)</p>
         </div>
       </section>
 
@@ -43,12 +43,13 @@
       </section>
 
       <section class="app-section" aria-labelledby="scene-names-heading">
-        <h2 id="scene-names-heading">Scene Names</h2>
+        <h2 id="scene-names-heading">Scene Lists</h2>
         <div class="scene-file-actions">
           <p id="scene-file-path" role="status" aria-live="polite"></p>
-          <button id="reveal-scene-file" type="button">Reveal Scene File</button>
-          <button id="reload-scene-names" type="button">Reload Scene Names</button>
+          <button id="reveal-scene-file" type="button">Reveal Scene List File</button>
+          <button id="reload-scene-names" type="button">Reload Loaded Scene List</button>
         </div>
+        <p id="scene-file-location" class="scene-file-location" role="status" aria-live="polite"></p>
         <p id="scene-file-reveal-result" role="status" aria-live="polite"></p>
         <p id="scene-file-reload-result" role="status" aria-live="polite"></p>
         <div class="scene-list-actions">
@@ -56,7 +57,7 @@
           <button id="export-scene-list" type="button">Export Scene List</button>
           <button id="import-scene-list" type="button">Import Scene List</button>
         </div>
-        <p class="scene-list-note">The active scene list is used for marker names. Export saves a copy elsewhere without changing it. Import replaces it from an external file.</p>
+        <p class="scene-list-note">Loaded Scene List: Default Scene List. It provides the names used for REAPER markers. Export saves a copy without changing the loaded list; Import replaces the loaded list from an external file.</p>
         <p id="scene-list-transfer-result" role="status" aria-live="polite"></p>
         <h3>Scene List Backups</h3>
         <div class="scene-backup-actions">
@@ -68,9 +69,9 @@
             <option value="">No saved backups</option>
           </select>
           <button id="refresh-scene-list-backups" type="button">Refresh Backups</button>
-          <button id="restore-scene-list-backup" type="button" disabled>Restore Selected Backup</button>
+          <button id="restore-scene-list-backup" type="button" disabled>Restore Backup</button>
         </div>
-        <p class="scene-backup-note">A backup is an app-managed saved copy you can restore later. Restoring a backup replaces the active scene list used for marker names.</p>
+        <p class="scene-backup-note">A backup is an app-managed saved copy you can restore later. Restoring a backup replaces the loaded scene list used for marker names.</p>
         <p id="scene-list-backup-result" role="status" aria-live="polite"></p>
       </section>
 
@@ -104,15 +105,16 @@
     <div id="scene-editor-panel" class="scene-editor-panel" hidden>
       <section class="scene-editor-dialog" role="dialog" aria-modal="true" aria-labelledby="scene-editor-heading">
         <div class="scene-editor-dialog-header">
-          <h2 id="scene-editor-heading">Active Scene List Editor</h2>
+          <h2 id="scene-editor-heading">Loaded Scene List Editor</h2>
           <div class="scene-editor-actions">
-            <button id="save-scene-names" type="button" disabled>Save Scene Names to Active List</button>
+            <button id="save-scene-names" type="button" disabled>Save Scene List</button>
             <button id="close-scene-editor" type="button">Close Editor</button>
           </div>
         </div>
         <p id="scene-editor-file-path" class="scene-editor-file-path"></p>
+        <p id="scene-editor-file-location" class="scene-editor-file-path"></p>
         <p class="scene-editor-note">
-          You are editing the active scene list used for marker names. Scene number = line number. Empty names are allowed.
+          You are editing the loaded scene list used for marker names. Scene number = line number. Empty names are allowed.
         </p>
         <div id="scene-editor" class="scene-editor" aria-label="Scene name editor"></div>
         <p id="scene-editor-result" role="status" aria-live="polite"></p>
@@ -120,7 +122,7 @@
       <div id="discard-scene-editor-confirmation" class="scene-editor-confirmation" role="alertdialog" aria-modal="true" aria-labelledby="discard-scene-editor-heading" hidden>
         <div class="scene-editor-confirmation-dialog">
           <h3 id="discard-scene-editor-heading">Discard unsaved changes?</h3>
-          <p>Your edits to the active scene list will not be saved.</p>
+          <p>Your edits to the loaded scene list will not be saved.</p>
           <div class="scene-editor-confirmation-actions">
             <button id="keep-editing-scene-names" type="button">Keep Editing</button>
             <button id="discard-scene-name-changes" type="button">Discard Changes</button>
@@ -131,12 +133,12 @@
 
     <div id="import-scene-list-confirmation" class="scene-list-confirmation" role="alertdialog" aria-modal="true" aria-labelledby="import-scene-list-heading" hidden>
       <div class="scene-list-confirmation-dialog">
-        <h2 id="import-scene-list-heading">Import and replace active scene list?</h2>
+        <h2 id="import-scene-list-heading">Import and replace loaded scene list?</h2>
         <p id="import-scene-list-path"></p>
-        <p>This replaces the active scene list used for marker names. The imported names will be used immediately.</p>
+        <p>This replaces the loaded scene list used for marker names. The imported names will be used immediately.</p>
         <div class="scene-list-confirmation-actions">
           <button id="cancel-scene-list-import" type="button">Cancel</button>
-          <button id="confirm-scene-list-import" type="button">Import and Replace Active List</button>
+          <button id="confirm-scene-list-import" type="button">Import and Replace Loaded List</button>
         </div>
       </div>
     </div>
@@ -145,7 +147,7 @@
       <div class="scene-list-confirmation-dialog">
         <h2 id="restore-scene-list-backup-heading">Restore selected backup?</h2>
         <p id="restore-scene-list-backup-name"></p>
-        <p>This replaces the active scene list used for marker names. The restored names will be used immediately.</p>
+        <p>This replaces the loaded scene list used for marker names. The restored names will be used immediately.</p>
         <div class="scene-list-confirmation-actions">
           <button id="cancel-scene-list-backup-restore" type="button">Cancel</button>
           <button id="confirm-scene-list-backup-restore" type="button">Restore Backup</button>
