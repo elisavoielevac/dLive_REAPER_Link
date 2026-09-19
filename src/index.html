@@ -56,8 +56,22 @@
           <button id="export-scene-list" type="button">Export Scene List</button>
           <button id="import-scene-list" type="button">Import Scene List</button>
         </div>
-        <p class="scene-list-note">Export saves a backup copy. Import replaces the active dLive_Scenes.txt scene list.</p>
+        <p class="scene-list-note">Export saves a copy somewhere else. Import replaces the active dLive_Scenes.txt scene list from an external file.</p>
         <p id="scene-list-transfer-result" role="status" aria-live="polite"></p>
+        <h3>Scene List Backups</h3>
+        <div class="scene-backup-actions">
+          <label for="scene-backup-name">Backup name</label>
+          <input id="scene-backup-name" type="text" placeholder="Optional timestamped backup" autocomplete="off" />
+          <button id="save-scene-list-backup" type="button">Save Backup</button>
+          <label for="scene-list-backups">Saved backups</label>
+          <select id="scene-list-backups" disabled>
+            <option value="">No saved backups</option>
+          </select>
+          <button id="refresh-scene-list-backups" type="button">Refresh Backups</button>
+          <button id="restore-scene-list-backup" type="button" disabled>Restore Selected Backup</button>
+        </div>
+        <p class="scene-backup-note">Backups are saved copies of the active scene list. Restoring a backup replaces the active dLive_Scenes.txt file used for marker names.</p>
+        <p id="scene-list-backup-result" role="status" aria-live="polite"></p>
       </section>
 
       <section class="app-section" aria-labelledby="reaper-connection-heading">
@@ -123,6 +137,18 @@
         <div class="scene-list-confirmation-actions">
           <button id="cancel-scene-list-import" type="button">Cancel</button>
           <button id="confirm-scene-list-import" type="button">Replace Scene List</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="restore-scene-list-backup-confirmation" class="scene-list-confirmation" role="alertdialog" aria-modal="true" aria-labelledby="restore-scene-list-backup-heading" hidden>
+      <div class="scene-list-confirmation-dialog">
+        <h2 id="restore-scene-list-backup-heading">Restore selected backup?</h2>
+        <p id="restore-scene-list-backup-name"></p>
+        <p>This will replace the active dLive_Scenes.txt file used for marker names.</p>
+        <div class="scene-list-confirmation-actions">
+          <button id="cancel-scene-list-backup-restore" type="button">Cancel</button>
+          <button id="confirm-scene-list-backup-restore" type="button">Restore Backup</button>
         </div>
       </div>
     </div>

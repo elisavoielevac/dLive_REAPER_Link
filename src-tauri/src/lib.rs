@@ -3,7 +3,7 @@ pub mod reaper_osc;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, RwLock};
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use tauri::{Emitter, Manager};
 use tauri_plugin_opener::OpenerExt;
 
@@ -134,6 +134,7 @@ impl ReaperOscSettings {
 struct SceneNames {
     names: Arc<RwLock<Vec<String>>>,
     path: PathBuf,
+    backups_dir: PathBuf,
 }
 
 impl SceneNames {
@@ -149,6 +150,10 @@ impl SceneNames {
         Ok(Self {
             names: Arc::new(RwLock::new(read_scene_names(scene_file)?)),
             path: scene_file.to_path_buf(),
+            backups_dir: scene_file
+                .parent()
+                .unwrap_or_else(|| Path::new("."))
+                .join("scene_list_backups"),
         })
     }
 
@@ -212,6 +217,81 @@ impl SceneNames {
         names.resize(SCENE_SLOT_COUNT, String::new());
         self.save(names)
     }
+
+    fn list_backups(&self) -> Result<Vec<String>, String> {
+        let entries = match fs::read_dir(&self.backups_dir) {
+            Ok(entries) => entries,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
+            Err(error) => return Err(error.to_string()),
+        };
+
+        let mut backups = entries
+            .filter_map(Result::ok)
+            .filter_map(|entry| {
+                let path = entry.path();
+                (path.is_file() && path.extension().is_some_and(|extension| extension == "txt"))
+                    .then(|| entry.file_name().to_string_lossy().into_owned())
+            })
+            .filter(|name| self.backup_path(name).is_ok())
+            .collect::<Vec<_>>();
+        backups.sort_by(|left, right| right.cmp(left));
+        Ok(backups)
+    }
+
+    fn save_backup(&self, name: &str) -> Result<String, String> {
+        fs::create_dir_all(&self.backups_dir).map_err(|error| error.to_string())?;
+
+        let sanitized_name = sanitize_backup_name(name);
+        let base_name = if sanitized_name.is_empty() {
+            format!(
+                "scene_list_backup_{}",
+                SystemTime::now()
+                    .duration_since(UNIX_EPOCH)
+                    .unwrap_or_default()
+                    .as_secs()
+            )
+        } else {
+            sanitized_name
+        };
+        let mut backup_name = format!("{base_name}.txt");
+        let mut suffix = 2;
+        while self.backups_dir.join(&backup_name).exists() {
+            backup_name = format!("{base_name}-{suffix}.txt");
+            suffix += 1;
+        }
+
+        self.export_to(&self.backups_dir.join(&backup_name))?;
+        Ok(backup_name)
+    }
+
+    fn restore_backup(&self, backup_name: &str) -> Result<usize, String> {
+        self.import_from(&self.backup_path(backup_name)?)
+    }
+
+    fn backup_path(&self, backup_name: &str) -> Result<PathBuf, String> {
+        let base_name = backup_name
+            .strip_suffix(".txt")
+            .ok_or_else(|| "invalid scene list backup".to_string())?;
+        if base_name.is_empty() || sanitize_backup_name(base_name) != base_name {
+            return Err("invalid scene list backup".to_string());
+        }
+
+        Ok(self.backups_dir.join(backup_name))
+    }
+}
+
+fn sanitize_backup_name(name: &str) -> String {
+    name.trim()
+        .chars()
+        .map(|character| match character {
+            'a'..='z' | 'A'..='Z' | '0'..='9' | ' ' | '_' | '-' => character,
+            _ => '_',
+        })
+        .take(80)
+        .collect::<String>()
+        .trim_matches('_')
+        .trim()
+        .to_string()
 }
 
 fn read_scene_names(scene_file: &Path) -> Result<Vec<String>, std::io::Error> {
@@ -388,6 +468,29 @@ fn import_scene_list(
 }
 
 #[tauri::command]
+fn list_scene_list_backups(
+    scene_names: tauri::State<'_, SceneNames>,
+) -> Result<Vec<String>, String> {
+    scene_names.list_backups()
+}
+
+#[tauri::command]
+fn save_scene_list_backup(
+    name: String,
+    scene_names: tauri::State<'_, SceneNames>,
+) -> Result<String, String> {
+    scene_names.save_backup(&name)
+}
+
+#[tauri::command]
+fn restore_scene_list_backup(
+    backup_name: String,
+    scene_names: tauri::State<'_, SceneNames>,
+) -> Result<usize, String> {
+    scene_names.restore_backup(&backup_name)
+}
+
+#[tauri::command]
 fn start_midi_log(
     port_name: String,
     app: tauri::AppHandle,
@@ -479,7 +582,7 @@ fn start_midi_log(
 
 #[cfg(test)]
 mod tests {
-    use super::decode_scene_number;
+    use super::{decode_scene_number, sanitize_backup_name};
 
     #[test]
     fn decodes_banked_dlive_scene_numbers() {
@@ -494,6 +597,12 @@ mod tests {
     #[test]
     fn ignores_scene_numbers_beyond_the_scene_list() {
         assert_eq!(decode_scene_number(3, 116), None);
+    }
+
+    #[test]
+    fn sanitizes_scene_list_backup_names() {
+        assert_eq!(sanitize_backup_name("  Friday / Set  "), "Friday _ Set");
+        assert_eq!(sanitize_backup_name("../../"), "");
     }
 }
 
@@ -549,6 +658,9 @@ pub fn run() {
             save_scene_names,
             export_scene_list,
             import_scene_list,
+            list_scene_list_backups,
+            save_scene_list_backup,
+            restore_scene_list_backup,
             start_midi_log,
             stop_midi_log,
             test_reaper_osc_marker

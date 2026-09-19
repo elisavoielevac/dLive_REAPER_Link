@@ -105,6 +105,7 @@ button:disabled {
 #scene-file-reload-result,
 #scene-editor-result,
 #scene-list-transfer-result,
+#scene-list-backup-result,
 #midi-log-result,
 #midi-scene-result,
 #midi-scene-name-result,
@@ -160,6 +161,27 @@ button:disabled {
 
 .scene-list-actions button {
   flex: 0 0 auto;
+}
+
+.scene-backup-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+
+.scene-backup-actions input {
+  min-width: min(18rem, 100%);
+}
+
+.scene-backup-actions select {
+  max-width: 100%;
+}
+
+.scene-backup-note {
+  font-size: 0.875rem;
+  line-height: 1.5;
 }
 
 .scene-list-note {
@@ -295,6 +317,10 @@ body.scene-list-import-open {
   overflow: hidden;
 }
 
+body.scene-list-backup-restore-open {
+  overflow: hidden;
+}
+
 .scene-editor-row {
   display: grid;
   grid-template-columns: 5rem minmax(0, 1fr);
@@ -412,6 +438,7 @@ input {
   .reaper-osc-settings,
   .scene-file-actions,
   .scene-list-actions,
+  .scene-backup-actions,
   .scene-editor-dialog-header,
   .scene-editor-actions,
   .scene-editor-confirmation-actions,
