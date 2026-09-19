@@ -41,16 +41,16 @@ window.addEventListener("DOMContentLoaded", () => {
 
   function updateReadiness() {
     readinessMidiInput.textContent = `MIDI Input: ${
-      midiInputSelect.value ? "selected" : "not selected"
+      midiInputSelect.value ? "Ready" : "Not selected"
     }`;
     readinessDLiveLink.textContent =
-      `dLive Link: ${dLiveLinkRunning ? "running" : "stopped"}`;
+      `dLive Link: ${dLiveLinkRunning ? "Running" : "Stopped"}`;
     readinessReaperOsc.textContent = savedReaperOscTarget
-      ? `REAPER OSC: ${savedReaperOscTarget.host}:${savedReaperOscTarget.port}`
-      : "REAPER OSC: unavailable";
+      ? `REAPER OSC: Configured (${savedReaperOscTarget.host}:${savedReaperOscTarget.port})`
+      : "REAPER OSC: Check settings";
     readinessSceneNames.textContent = Number.isInteger(sceneNamesCount)
       ? `Scene Names: ${sceneNamesCount} loaded`
-      : "Scene Names: not loaded";
+      : "Scene Names: Not loaded";
   }
 
   updateReadiness();
@@ -165,7 +165,7 @@ window.addEventListener("DOMContentLoaded", () => {
         midiResult.textContent = "Saved MIDI input not found";
       } else {
         midiResult.textContent = inputs.length
-          ? `MIDI inputs available: ${inputs.join(", ")}`
+          ? "Choose your Allen & Heath MIDI TCP input, then start dLive Link."
           : "No MIDI inputs available";
       }
 

@@ -18,10 +18,10 @@
       <section class="readiness-summary" aria-labelledby="readiness-heading">
         <h2 id="readiness-heading">App Readiness</h2>
         <div class="readiness-items" role="status" aria-live="polite">
-          <p id="readiness-midi-input">MIDI Input: not selected</p>
-          <p id="readiness-dlive-link">dLive Link: stopped</p>
-          <p id="readiness-reaper-osc">REAPER OSC: loading...</p>
-          <p id="readiness-scene-names">Scene Names: not loaded</p>
+          <p id="readiness-midi-input">MIDI Input: Not selected</p>
+          <p id="readiness-dlive-link">dLive Link: Stopped</p>
+          <p id="readiness-reaper-osc">REAPER OSC: Check settings</p>
+          <p id="readiness-scene-names">Scene Names: Not loaded</p>
         </div>
       </section>
 
@@ -64,7 +64,7 @@
           <button id="test-reaper-connection" type="button">Test REAPER Connection</button>
         </div>
         <p class="reaper-osc-note">
-          Enable OSC in REAPER. The app sends to REAPER port 49101 by default; configure feedback to return to local port 49102, or marker naming may time out.
+          Enable OSC in REAPER. App sends to REAPER: 127.0.0.1:49101. REAPER feedback to app: 127.0.0.1:49102. Without feedback, marker naming may time out.
         </p>
         <p id="reaper-osc-settings-result" role="status" aria-live="polite"></p>
       </section>
