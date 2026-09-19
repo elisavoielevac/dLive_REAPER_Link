@@ -125,6 +125,11 @@ button:disabled {
   margin: 0;
 }
 
+.reaper-osc-note {
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
 .scene-file-actions {
   display: flex;
   align-items: center;
