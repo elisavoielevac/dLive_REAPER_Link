@@ -5,6 +5,7 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use tauri::{Emitter, Manager};
+use tauri_plugin_opener::OpenerExt;
 
 const DUPLICATE_SCENE_RECALL_WINDOW: Duration = Duration::from_millis(250);
 
@@ -93,6 +94,16 @@ fn get_scene_file_path(scene_names: tauri::State<'_, SceneNames>) -> String {
 }
 
 #[tauri::command]
+fn reveal_scene_file(
+    app: tauri::AppHandle,
+    scene_names: tauri::State<'_, SceneNames>,
+) -> Result<(), String> {
+    app.opener()
+        .reveal_item_in_dir(&scene_names.path)
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
 fn start_midi_log(
     port_name: String,
     app: tauri::AppHandle,
@@ -172,6 +183,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             list_midi_inputs,
             get_scene_file_path,
+            reveal_scene_file,
             start_midi_log,
             test_reaper_osc_marker
         ])

@@ -16,7 +16,11 @@
       <p id="test-reaper-osc-result" role="status" aria-live="polite"></p>
       <button id="list-midi-inputs" type="button">List MIDI Inputs</button>
       <p id="midi-inputs-result" role="status" aria-live="polite"></p>
-      <p id="scene-file-path" role="status" aria-live="polite"></p>
+      <div class="scene-file-actions">
+        <p id="scene-file-path" role="status" aria-live="polite"></p>
+        <button id="reveal-scene-file" type="button">Reveal Scene File</button>
+      </div>
+      <p id="scene-file-reveal-result" role="status" aria-live="polite"></p>
       <label for="midi-input-select">MIDI input</label>
       <select id="midi-input-select" disabled>
         <option value="">List MIDI inputs first</option>

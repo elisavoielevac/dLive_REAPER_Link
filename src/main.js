@@ -6,6 +6,10 @@ window.addEventListener("DOMContentLoaded", () => {
   const midiButton = document.querySelector("#list-midi-inputs");
   const midiResult = document.querySelector("#midi-inputs-result");
   const sceneFilePath = document.querySelector("#scene-file-path");
+  const revealSceneFileButton = document.querySelector("#reveal-scene-file");
+  const sceneFileRevealResult = document.querySelector(
+    "#scene-file-reveal-result",
+  );
   const midiInputSelect = document.querySelector("#midi-input-select");
   const startMidiLogButton = document.querySelector("#start-midi-log");
   const midiLogResult = document.querySelector("#midi-log-result");
@@ -24,6 +28,20 @@ window.addEventListener("DOMContentLoaded", () => {
   }
 
   void loadSceneFilePath();
+
+  revealSceneFileButton.addEventListener("click", async () => {
+    revealSceneFileButton.disabled = true;
+    sceneFileRevealResult.textContent = "Revealing scene file...";
+
+    try {
+      await invoke("reveal_scene_file");
+      sceneFileRevealResult.textContent = "Scene file revealed";
+    } catch (error) {
+      sceneFileRevealResult.textContent = `Error: ${error}`;
+    } finally {
+      revealSceneFileButton.disabled = false;
+    }
+  });
 
   testButton.addEventListener("click", async () => {
     testButton.disabled = true;

@@ -54,12 +54,30 @@ button:disabled {
 #test-reaper-osc-result,
 #midi-inputs-result,
 #scene-file-path,
+#scene-file-reveal-result,
 #midi-log-result,
 #midi-scene-result,
 #midi-scene-name-result {
   min-height: 1.5rem;
   max-width: 36rem;
   overflow-wrap: anywhere;
+}
+
+.scene-file-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  max-width: min(42rem, 90vw);
+}
+
+.scene-file-actions button {
+  margin-top: 0.75rem;
+  flex: 0 0 auto;
+}
+
+.scene-file-actions #scene-file-path {
+  min-width: 0;
 }
 
 label,
