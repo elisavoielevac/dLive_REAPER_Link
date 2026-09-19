@@ -12,7 +12,7 @@
     <main class="container">
       <h1>dLive &rarr; REAPER Link</h1>
       <p>Setup complete</p>
-      <button id="list-midi-inputs" type="button">List MIDI Inputs</button>
+      <button id="list-midi-inputs" type="button">Refresh MIDI Inputs</button>
       <p id="midi-inputs-result" role="status" aria-live="polite"></p>
       <div class="scene-file-actions">
         <p id="scene-file-path" role="status" aria-live="polite"></p>
@@ -25,11 +25,12 @@
       <select id="midi-input-select" disabled>
         <option value="">List MIDI inputs first</option>
       </select>
-      <button id="start-midi-log" type="button" disabled>Start MIDI Log</button>
+      <button id="start-midi-log" type="button" disabled>Start dLive Link</button>
       <p id="midi-log-result" role="status" aria-live="polite"></p>
       <p id="midi-scene-result" role="status" aria-live="polite"></p>
       <p id="midi-scene-name-result" role="status" aria-live="polite"></p>
-      <pre id="midi-log" aria-live="polite"></pre>
+      <h2 id="midi-activity-heading">MIDI Activity</h2>
+      <pre id="midi-log" aria-live="polite" aria-labelledby="midi-activity-heading"></pre>
     </main>
   </body>
 </html>
