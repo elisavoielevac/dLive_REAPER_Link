@@ -131,10 +131,43 @@ impl ReaperOscSettings {
     }
 }
 
+struct SceneListSelection {
+    path: PathBuf,
+}
+
+impl SceneListSelection {
+    fn load(&self) -> Result<Option<String>, std::io::Error> {
+        match fs::read_to_string(&self.path) {
+            Ok(name) => {
+                let name = name.trim().to_string();
+                Ok((!name.is_empty()).then_some(name))
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(None),
+            Err(error) => Err(error),
+        }
+    }
+
+    fn save(&self, name: &str) -> Result<(), std::io::Error> {
+        if let Some(parent) = self.path.parent() {
+            fs::create_dir_all(parent)?;
+        }
+
+        fs::write(&self.path, name)
+    }
+
+    fn clear(&self) -> Result<(), std::io::Error> {
+        match fs::remove_file(&self.path) {
+            Ok(()) => Ok(()),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
+            Err(error) => Err(error),
+        }
+    }
+}
+
 struct SceneNames {
     names: Arc<RwLock<Vec<String>>>,
     path: PathBuf,
-    backups_dir: PathBuf,
+    scene_lists_dir: PathBuf,
 }
 
 impl SceneNames {
@@ -150,7 +183,8 @@ impl SceneNames {
         Ok(Self {
             names: Arc::new(RwLock::new(read_scene_names(scene_file)?)),
             path: scene_file.to_path_buf(),
-            backups_dir: scene_file
+            // Keep the existing app-managed folder so previously saved backups remain available.
+            scene_lists_dir: scene_file
                 .parent()
                 .unwrap_or_else(|| Path::new("."))
                 .join("scene_list_backups"),
@@ -218,69 +252,142 @@ impl SceneNames {
         self.save(names)
     }
 
-    fn list_backups(&self) -> Result<Vec<String>, String> {
-        let entries = match fs::read_dir(&self.backups_dir) {
+    fn list_saved_scene_lists(&self) -> Result<Vec<String>, String> {
+        let entries = match fs::read_dir(&self.scene_lists_dir) {
             Ok(entries) => entries,
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
             Err(error) => return Err(error.to_string()),
         };
 
-        let mut backups = entries
+        let mut scene_lists = entries
             .filter_map(Result::ok)
             .filter_map(|entry| {
                 let path = entry.path();
-                (path.is_file() && path.extension().is_some_and(|extension| extension == "txt"))
-                    .then(|| entry.file_name().to_string_lossy().into_owned())
+                if !path.is_file() || !path.extension().is_some_and(|extension| extension == "txt")
+                {
+                    return None;
+                }
+
+                path.file_stem()
+                    .map(|name| name.to_string_lossy().into_owned())
             })
-            .filter(|name| self.backup_path(name).is_ok())
+            .filter(|name| self.scene_list_path(name).is_ok())
             .collect::<Vec<_>>();
-        backups.sort_by(|left, right| right.cmp(left));
-        Ok(backups)
+        scene_lists.sort_by(|left, right| right.cmp(left));
+        Ok(scene_lists)
     }
 
-    fn save_backup(&self, name: &str) -> Result<String, String> {
-        fs::create_dir_all(&self.backups_dir).map_err(|error| error.to_string())?;
+    fn save_as_scene_list(&self, name: &str) -> Result<String, String> {
+        fs::create_dir_all(&self.scene_lists_dir).map_err(|error| error.to_string())?;
 
-        let sanitized_name = sanitize_backup_name(name);
-        let base_name = if sanitized_name.is_empty() {
-            format!(
-                "scene_list_backup_{}",
-                SystemTime::now()
-                    .duration_since(UNIX_EPOCH)
-                    .unwrap_or_default()
-                    .as_secs()
-            )
-        } else {
-            sanitized_name
-        };
-        let mut backup_name = format!("{base_name}.txt");
+        let base_name = sanitize_scene_list_name(name);
+        if base_name.is_empty() {
+            return Err("scene list name is required".to_string());
+        }
+
+        let mut scene_list_name = base_name.clone();
         let mut suffix = 2;
-        while self.backups_dir.join(&backup_name).exists() {
-            backup_name = format!("{base_name}-{suffix}.txt");
+        while self.scene_list_path(&scene_list_name)?.exists() {
+            scene_list_name = format!("{base_name}-{suffix}");
             suffix += 1;
         }
 
-        self.export_to(&self.backups_dir.join(&backup_name))?;
-        Ok(backup_name)
+        self.save_current_to_scene_list(&scene_list_name)?;
+        Ok(scene_list_name)
     }
 
-    fn restore_backup(&self, backup_name: &str) -> Result<usize, String> {
-        self.import_from(&self.backup_path(backup_name)?)
+    fn load_scene_list(&self, scene_list_name: &str) -> Result<usize, String> {
+        self.import_from(&self.scene_list_path(scene_list_name)?)
     }
 
-    fn backup_path(&self, backup_name: &str) -> Result<PathBuf, String> {
-        let base_name = backup_name
-            .strip_suffix(".txt")
-            .ok_or_else(|| "invalid scene list backup".to_string())?;
-        if base_name.is_empty() || sanitize_backup_name(base_name) != base_name {
-            return Err("invalid scene list backup".to_string());
+    fn import_as_scene_list(&self, source: &Path) -> Result<(String, usize), String> {
+        let source_name = source
+            .file_stem()
+            .and_then(|name| name.to_str())
+            .unwrap_or("Imported Scene List");
+        let scene_list_name = self.save_as_scene_list_name(source_name)?;
+
+        let mut names = read_scene_names(source).map_err(|error| error.to_string())?;
+        names.truncate(SCENE_SLOT_COUNT);
+        names.resize(SCENE_SLOT_COUNT, String::new());
+        self.write_scene_list(&scene_list_name, &names)?;
+        let count = self.load_scene_list(&scene_list_name)?;
+        Ok((scene_list_name, count))
+    }
+
+    fn save_current_to_scene_list(&self, scene_list_name: &str) -> Result<(), String> {
+        let mut names = read_scene_names(&self.path).map_err(|error| error.to_string())?;
+        names.truncate(SCENE_SLOT_COUNT);
+        names.resize(SCENE_SLOT_COUNT, String::new());
+        self.write_scene_list(scene_list_name, &names)
+    }
+
+    fn save_loaded_scene_list(&self, scene_list_name: &str) -> Result<(), String> {
+        self.save_current_to_scene_list(scene_list_name)
+    }
+
+    fn save_as_scene_list_name(&self, name: &str) -> Result<String, String> {
+        fs::create_dir_all(&self.scene_lists_dir).map_err(|error| error.to_string())?;
+
+        let base_name = sanitize_scene_list_name(name);
+        let base_name = (!base_name.is_empty())
+            .then_some(base_name)
+            .unwrap_or_else(|| {
+                format!(
+                    "Imported Scene List {}",
+                    SystemTime::now()
+                        .duration_since(UNIX_EPOCH)
+                        .unwrap_or_default()
+                        .as_secs()
+                )
+            });
+        let mut scene_list_name = base_name.clone();
+        let mut suffix = 2;
+        while self.scene_list_path(&scene_list_name)?.exists() {
+            scene_list_name = format!("{base_name}-{suffix}");
+            suffix += 1;
         }
 
-        Ok(self.backups_dir.join(backup_name))
+        Ok(scene_list_name)
+    }
+
+    fn write_scene_list(&self, scene_list_name: &str, names: &[String]) -> Result<(), String> {
+        if names.len() != SCENE_SLOT_COUNT {
+            return Err(format!(
+                "exactly {SCENE_SLOT_COUNT} scene names are required"
+            ));
+        }
+        if names
+            .iter()
+            .any(|name| name.contains('\n') || name.contains('\r'))
+        {
+            return Err("scene names cannot contain line breaks".to_string());
+        }
+
+        fs::write(
+            self.scene_list_path(scene_list_name)?,
+            format!("{}\n", names.join("\n")),
+        )
+        .map_err(|error| error.to_string())
+    }
+
+    fn scene_list_path(&self, scene_list_name: &str) -> Result<PathBuf, String> {
+        if scene_list_name.is_empty()
+            || sanitize_scene_list_name(scene_list_name) != scene_list_name
+        {
+            return Err("invalid scene list name".to_string());
+        }
+
+        Ok(self.scene_lists_dir.join(format!("{scene_list_name}.txt")))
+    }
+
+    fn has_scene_list(&self, scene_list_name: &str) -> bool {
+        self.scene_list_path(scene_list_name)
+            .is_ok_and(|path| path.is_file())
     }
 }
 
-fn sanitize_backup_name(name: &str) -> String {
+fn sanitize_scene_list_name(name: &str) -> String {
     name.trim()
         .chars()
         .map(|character| match character {
@@ -447,8 +554,16 @@ fn get_scene_name_entries(
 fn save_scene_names(
     names: Vec<String>,
     scene_names: tauri::State<'_, SceneNames>,
+    scene_list_selection: tauri::State<'_, SceneListSelection>,
 ) -> Result<usize, String> {
-    scene_names.save(names)
+    let count = scene_names.save(names)?;
+    if let Some(scene_list_name) = scene_list_selection
+        .load()
+        .map_err(|error| error.to_string())?
+    {
+        scene_names.save_loaded_scene_list(&scene_list_name)?;
+    }
+    Ok(count)
 }
 
 #[tauri::command]
@@ -463,31 +578,68 @@ fn export_scene_list(
 fn import_scene_list(
     source_path: String,
     scene_names: tauri::State<'_, SceneNames>,
-) -> Result<usize, String> {
-    scene_names.import_from(Path::new(&source_path))
+    scene_list_selection: tauri::State<'_, SceneListSelection>,
+) -> Result<(String, usize), String> {
+    let (scene_list_name, count) = scene_names.import_as_scene_list(Path::new(&source_path))?;
+    scene_list_selection
+        .save(&scene_list_name)
+        .map_err(|error| error.to_string())?;
+    Ok((scene_list_name, count))
 }
 
 #[tauri::command]
-fn list_scene_list_backups(
+fn get_loaded_scene_list(
+    scene_names: tauri::State<'_, SceneNames>,
+    scene_list_selection: tauri::State<'_, SceneListSelection>,
+) -> Result<Option<String>, String> {
+    let selected_scene_list = scene_list_selection
+        .load()
+        .map_err(|error| error.to_string())?;
+    if selected_scene_list
+        .as_deref()
+        .is_some_and(|name| scene_names.has_scene_list(name))
+    {
+        Ok(selected_scene_list)
+    } else {
+        scene_list_selection
+            .clear()
+            .map_err(|error| error.to_string())?;
+        Ok(None)
+    }
+}
+
+#[tauri::command]
+fn list_saved_scene_lists(
     scene_names: tauri::State<'_, SceneNames>,
 ) -> Result<Vec<String>, String> {
-    scene_names.list_backups()
+    scene_names.list_saved_scene_lists()
 }
 
 #[tauri::command]
-fn save_scene_list_backup(
+fn save_scene_list_as(
     name: String,
     scene_names: tauri::State<'_, SceneNames>,
+    scene_list_selection: tauri::State<'_, SceneListSelection>,
 ) -> Result<String, String> {
-    scene_names.save_backup(&name)
+    let scene_list_name = scene_names.save_as_scene_list(&name)?;
+    scene_names.load_scene_list(&scene_list_name)?;
+    scene_list_selection
+        .save(&scene_list_name)
+        .map_err(|error| error.to_string())?;
+    Ok(scene_list_name)
 }
 
 #[tauri::command]
-fn restore_scene_list_backup(
-    backup_name: String,
+fn load_scene_list(
+    scene_list_name: String,
     scene_names: tauri::State<'_, SceneNames>,
+    scene_list_selection: tauri::State<'_, SceneListSelection>,
 ) -> Result<usize, String> {
-    scene_names.restore_backup(&backup_name)
+    let count = scene_names.load_scene_list(&scene_list_name)?;
+    scene_list_selection
+        .save(&scene_list_name)
+        .map_err(|error| error.to_string())?;
+    Ok(count)
 }
 
 #[tauri::command]
@@ -582,7 +734,7 @@ fn start_midi_log(
 
 #[cfg(test)]
 mod tests {
-    use super::{decode_scene_number, sanitize_backup_name};
+    use super::{decode_scene_number, sanitize_scene_list_name};
 
     #[test]
     fn decodes_banked_dlive_scene_numbers() {
@@ -600,9 +752,9 @@ mod tests {
     }
 
     #[test]
-    fn sanitizes_scene_list_backup_names() {
-        assert_eq!(sanitize_backup_name("  Friday / Set  "), "Friday _ Set");
-        assert_eq!(sanitize_backup_name("../../"), "");
+    fn sanitizes_scene_list_names() {
+        assert_eq!(sanitize_scene_list_name("  Friday / Set  "), "Friday _ Set");
+        assert_eq!(sanitize_scene_list_name("../../"), "");
     }
 }
 
@@ -637,11 +789,15 @@ pub fn run() {
             let app_config_dir = app.path().app_config_dir()?;
             let midi_input_selection = app_config_dir.join("selected_midi_input.txt");
             let reaper_osc_settings = app_config_dir.join("reaper_osc_settings.txt");
+            let scene_list_selection = app_config_dir.join("loaded_scene_list.txt");
             app.manage(SceneNames::load(&scene_file)?);
             app.manage(MidiInputSelection {
                 path: midi_input_selection,
             });
             app.manage(ReaperOscSettings::load(reaper_osc_settings)?);
+            app.manage(SceneListSelection {
+                path: scene_list_selection,
+            });
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -658,9 +814,10 @@ pub fn run() {
             save_scene_names,
             export_scene_list,
             import_scene_list,
-            list_scene_list_backups,
-            save_scene_list_backup,
-            restore_scene_list_backup,
+            get_loaded_scene_list,
+            list_saved_scene_lists,
+            save_scene_list_as,
+            load_scene_list,
             start_midi_log,
             stop_midi_log,
             test_reaper_osc_marker

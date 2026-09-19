@@ -310,6 +310,10 @@ button:disabled {
   flex: 0 0 auto;
 }
 
+.scene-editor-actions input {
+  min-width: min(14rem, 100%);
+}
+
 .scene-editor-file-path {
   overflow-wrap: anywhere;
 }
