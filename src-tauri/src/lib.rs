@@ -50,13 +50,17 @@ fn start_midi_log(
             &port,
             "dLive REAPER Link MIDI Log",
             move |_timestamp, message, _| {
-                let message = message
+                let raw_message = message
                     .iter()
                     .map(|byte| format!("{byte:02X}"))
                     .collect::<Vec<_>>()
                     .join(" ");
 
-                let _ = app.emit("midi-message", message);
+                let _ = app.emit("midi-message", raw_message);
+
+                if let [0xCB, program, ..] = message {
+                    let _ = app.emit("midi-scene-recall", u16::from(*program) + 1);
+                }
             },
             (),
         )
