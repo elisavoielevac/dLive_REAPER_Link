@@ -52,9 +52,29 @@ button:disabled {
 }
 
 #test-reaper-osc-result,
-#midi-inputs-result {
+#midi-inputs-result,
+#midi-log-result {
   min-height: 1.5rem;
   max-width: 36rem;
+}
+
+label,
+select {
+  margin-top: 1rem;
+}
+
+select {
+  font: inherit;
+}
+
+#midi-log {
+  width: min(36rem, 90vw);
+  min-height: 6rem;
+  max-height: 16rem;
+  margin: 0.75rem 0 0;
+  overflow: auto;
+  text-align: left;
+  white-space: pre-wrap;
 }
 
 @media (prefers-color-scheme: dark) {

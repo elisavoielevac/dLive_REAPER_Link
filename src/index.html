@@ -16,6 +16,13 @@
       <p id="test-reaper-osc-result" role="status" aria-live="polite"></p>
       <button id="list-midi-inputs" type="button">List MIDI Inputs</button>
       <p id="midi-inputs-result" role="status" aria-live="polite"></p>
+      <label for="midi-input-select">MIDI input</label>
+      <select id="midi-input-select" disabled>
+        <option value="">List MIDI inputs first</option>
+      </select>
+      <button id="start-midi-log" type="button" disabled>Start MIDI Log</button>
+      <p id="midi-log-result" role="status" aria-live="polite"></p>
+      <pre id="midi-log" aria-live="polite"></pre>
     </main>
   </body>
 </html>
