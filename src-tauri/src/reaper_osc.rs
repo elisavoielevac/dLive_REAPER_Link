@@ -3,6 +3,8 @@ use std::error::Error;
 use std::fmt;
 use std::io;
 use std::net::{SocketAddr, UdpSocket};
+use std::sync::{Arc, Condvar, Mutex, RwLock};
+use std::thread;
 use std::time::{Duration, Instant};
 
 const DEFAULT_HOST: &str = "127.0.0.1";
@@ -35,26 +37,118 @@ pub struct ReaperOscClient {
     config: ReaperOscConfig,
 }
 
+#[derive(Clone)]
+pub struct ReaperOscFeedback {
+    socket: Arc<UdpSocket>,
+    recording: Arc<RwLock<Option<bool>>>,
+    marker_feedback: Arc<(Mutex<(u64, String)>, Condvar)>,
+    marker_request: Arc<Mutex<()>>,
+}
+
+impl ReaperOscFeedback {
+    pub fn start(config: &ReaperOscConfig) -> Result<Self, ReaperOscError> {
+        let socket = Arc::new(UdpSocket::bind(("0.0.0.0", config.feedback_port)).map_err(
+            |source| ReaperOscError::BindFeedbackSocket {
+                addr: format!("0.0.0.0:{}", config.feedback_port),
+                source,
+            },
+        )?);
+        socket
+            .set_read_timeout(Some(Duration::from_millis(250)))
+            .map_err(ReaperOscError::ConfigureSocket)?;
+
+        let recording = Arc::new(RwLock::new(None));
+        let marker_feedback = Arc::new((Mutex::new((0, String::new())), Condvar::new()));
+        let listener_socket = Arc::clone(&socket);
+        let listener_recording = Arc::clone(&recording);
+        let listener_marker_feedback = Arc::clone(&marker_feedback);
+
+        thread::spawn(move || loop {
+            let mut buffer = [0; 8192];
+            let Ok((length, _sender)) = listener_socket.recv_from(&mut buffer) else {
+                continue;
+            };
+            let Ok((_, packet)) = decoder::decode_udp(&buffer[..length]) else {
+                continue;
+            };
+
+            if let Some(recording) = recording_from_packet(&packet) {
+                if let Ok(mut state) = listener_recording.write() {
+                    *state = Some(recording);
+                }
+            }
+            if let Some(marker_number) = last_marker_number_from_packet(&packet) {
+                let (lock, changed) = &*listener_marker_feedback;
+                if let Ok(mut feedback) = lock.lock() {
+                    feedback.0 += 1;
+                    feedback.1 = marker_number;
+                    changed.notify_all();
+                }
+            }
+        });
+
+        Ok(Self {
+            socket,
+            recording,
+            marker_feedback,
+            marker_request: Arc::new(Mutex::new(())),
+        })
+    }
+
+    pub fn recording(&self) -> Option<bool> {
+        self.recording.read().ok().and_then(|state| *state)
+    }
+}
+
 impl ReaperOscClient {
     pub fn new(config: ReaperOscConfig) -> Self {
         Self { config }
     }
 
-    pub fn create_marker(&self, name: &str) -> Result<String, ReaperOscError> {
-        let socket = self.bind_feedback_socket()?;
+    pub fn create_marker(
+        &self,
+        feedback: &ReaperOscFeedback,
+        name: &str,
+    ) -> Result<String, ReaperOscError> {
         let reaper_addr = self.reaper_addr()?;
+        let _request = feedback.marker_request.lock().map_err(|_| {
+            ReaperOscError::ReceiveOsc(io::Error::other("marker request unavailable"))
+        })?;
+        let (lock, changed) = &*feedback.marker_feedback;
+        let mut marker = lock.lock().map_err(|_| {
+            ReaperOscError::ReceiveOsc(io::Error::other("marker feedback unavailable"))
+        })?;
+        let feedback_sequence = marker.0;
 
         send_message(
-            &socket,
+            &feedback.socket,
             reaper_addr,
             "/action",
             vec![OscType::Int(CREATE_MARKER_ACTION_ID)],
         )?;
 
-        let marker_number = wait_for_last_marker_number(&socket, self.config.feedback_timeout)?;
+        let deadline = Instant::now() + self.config.feedback_timeout;
+        while marker.0 == feedback_sequence {
+            let remaining = deadline.checked_duration_since(Instant::now()).ok_or(
+                ReaperOscError::MarkerNumberTimeout {
+                    timeout: self.config.feedback_timeout,
+                },
+            )?;
+            let (next_marker, timeout) = changed.wait_timeout(marker, remaining).map_err(|_| {
+                ReaperOscError::ReceiveOsc(io::Error::other("marker feedback unavailable"))
+            })?;
+            marker = next_marker;
+            if timeout.timed_out() && marker.0 == feedback_sequence {
+                return Err(ReaperOscError::MarkerNumberTimeout {
+                    timeout: self.config.feedback_timeout,
+                });
+            }
+        }
+        let marker_number = marker.1.clone();
+        drop(marker);
 
         send_message(
-            &socket,
+            &feedback.socket,
             reaper_addr,
             "/lastmarker/name",
             vec![OscType::String(name.to_string())],
@@ -62,21 +156,6 @@ impl ReaperOscClient {
 
         Ok(marker_number)
     }
-
-    fn bind_feedback_socket(&self) -> Result<UdpSocket, ReaperOscError> {
-        let socket = UdpSocket::bind((self.config.host.as_str(), self.config.feedback_port))
-            .map_err(|source| ReaperOscError::BindFeedbackSocket {
-                addr: format!("{}:{}", self.config.host, self.config.feedback_port),
-                source,
-            })?;
-
-        socket
-            .set_read_timeout(Some(self.config.feedback_timeout))
-            .map_err(ReaperOscError::ConfigureSocket)?;
-
-        Ok(socket)
-    }
-
     fn reaper_addr(&self) -> Result<SocketAddr, ReaperOscError> {
         format!("{}:{}", self.config.host, self.config.receive_port)
             .parse()
@@ -173,44 +252,6 @@ fn send_message(
     Ok(())
 }
 
-fn wait_for_last_marker_number(
-    socket: &UdpSocket,
-    timeout: Duration,
-) -> Result<String, ReaperOscError> {
-    let deadline = Instant::now() + timeout;
-    let mut buffer = [0; 8192];
-
-    loop {
-        let remaining = deadline
-            .checked_duration_since(Instant::now())
-            .ok_or(ReaperOscError::MarkerNumberTimeout { timeout })?;
-
-        socket
-            .set_read_timeout(Some(remaining))
-            .map_err(ReaperOscError::ConfigureSocket)?;
-
-        let length = match socket.recv_from(&mut buffer) {
-            Ok((length, _sender)) => length,
-            Err(error)
-                if matches!(
-                    error.kind(),
-                    io::ErrorKind::WouldBlock | io::ErrorKind::TimedOut
-                ) =>
-            {
-                return Err(ReaperOscError::MarkerNumberTimeout { timeout });
-            }
-            Err(source) => return Err(ReaperOscError::ReceiveOsc(source)),
-        };
-
-        let (_, packet) =
-            decoder::decode_udp(&buffer[..length]).map_err(ReaperOscError::DecodeOsc)?;
-
-        if let Some(marker_number) = last_marker_number_from_packet(&packet) {
-            return Ok(marker_number);
-        }
-    }
-}
-
 fn last_marker_number_from_packet(packet: &OscPacket) -> Option<String> {
     match packet {
         OscPacket::Message(message) => last_marker_number_from_message(message),
@@ -228,6 +269,19 @@ fn last_marker_number_from_message(message: &OscMessage) -> Option<String> {
 
     match message.args.first() {
         Some(OscType::String(marker_number)) => Some(marker_number.clone()),
+        _ => None,
+    }
+}
+
+fn recording_from_packet(packet: &OscPacket) -> Option<bool> {
+    match packet {
+        OscPacket::Message(message) if message.addr == "/record" => match message.args.first() {
+            Some(OscType::Bool(value)) => Some(*value),
+            Some(OscType::Int(value)) => Some(*value != 0),
+            Some(OscType::Float(value)) => Some(*value != 0.0),
+            _ => None,
+        },
+        OscPacket::Bundle(bundle) => bundle.content.iter().find_map(recording_from_packet),
         _ => None,
     }
 }

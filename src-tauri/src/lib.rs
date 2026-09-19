@@ -108,6 +108,13 @@ impl ReaperOscSettings {
         Ok((config.host.clone(), config.receive_port))
     }
 
+    fn feedback_config(&self) -> Result<reaper_osc::ReaperOscConfig, String> {
+        self.config
+            .read()
+            .map(|config| config.clone())
+            .map_err(|_| "REAPER OSC settings are unavailable".to_string())
+    }
+
     fn save(&self, host: String, port: u16) -> Result<(), String> {
         let host = host.trim().to_string();
         if host.is_empty() {
@@ -462,6 +469,7 @@ fn should_create_marker(
 
 fn create_reaper_marker(
     reaper_osc_config: &RwLock<reaper_osc::ReaperOscConfig>,
+    reaper_osc_feedback: &reaper_osc::ReaperOscFeedback,
     name: &str,
 ) -> Result<String, String> {
     let config = reaper_osc_config
@@ -470,7 +478,7 @@ fn create_reaper_marker(
         .clone();
 
     reaper_osc::ReaperOscClient::new(config)
-        .create_marker(name)
+        .create_marker(reaper_osc_feedback, name)
         .map_err(|error| error.to_string())
 }
 
@@ -669,6 +677,7 @@ fn start_midi_log(
     state: tauri::State<'_, MidiLogState>,
     scene_names: tauri::State<'_, SceneNames>,
     reaper_osc_settings: tauri::State<'_, ReaperOscSettings>,
+    reaper_osc_feedback: tauri::State<'_, reaper_osc::ReaperOscFeedback>,
 ) -> Result<(), String> {
     let midi_input =
         midir::MidiInput::new("dLive REAPER Link").map_err(|error| error.to_string())?;
@@ -695,6 +704,7 @@ fn start_midi_log(
     let bank_select = Arc::clone(&state.bank_select);
     let scene_names = Arc::clone(&scene_names.names);
     let reaper_osc_config = Arc::clone(&reaper_osc_settings.config);
+    let reaper_osc_feedback = reaper_osc_feedback.inner().clone();
     let connection = midi_input
         .connect(
             &port,
@@ -739,7 +749,11 @@ fn start_midi_log(
                     );
 
                     if should_create_marker(&recent_scene_recall, scene_number) {
-                        let _ = create_reaper_marker(&reaper_osc_config, &scene_name);
+                        let _ = create_reaper_marker(
+                            &reaper_osc_config,
+                            &reaper_osc_feedback,
+                            &scene_name,
+                        );
                     }
                 }
             },
@@ -794,8 +808,13 @@ fn stop_midi_log(state: tauri::State<'_, MidiLogState>) -> Result<(), String> {
 #[tauri::command]
 fn test_reaper_osc_marker(
     reaper_osc_settings: tauri::State<'_, ReaperOscSettings>,
+    reaper_osc_feedback: tauri::State<'_, reaper_osc::ReaperOscFeedback>,
 ) -> Result<String, String> {
-    create_reaper_marker(&reaper_osc_settings.config, "REAPER CONNECTION TEST")
+    create_reaper_marker(
+        &reaper_osc_settings.config,
+        reaper_osc_feedback.inner(),
+        "REAPER CONNECTION TEST",
+    )
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -814,7 +833,14 @@ pub fn run() {
             app.manage(MidiInputSelection {
                 path: midi_input_selection,
             });
-            app.manage(ReaperOscSettings::load(reaper_osc_settings)?);
+            let reaper_osc_settings = ReaperOscSettings::load(reaper_osc_settings)?;
+            let reaper_osc_feedback = reaper_osc::ReaperOscFeedback::start(
+                &reaper_osc_settings
+                    .feedback_config()
+                    .map_err(std::io::Error::other)?,
+            )?;
+            app.manage(reaper_osc_settings);
+            app.manage(reaper_osc_feedback);
             app.manage(SceneListSelection {
                 path: scene_list_selection,
             });
