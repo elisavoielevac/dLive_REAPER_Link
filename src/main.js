@@ -63,11 +63,8 @@ window.addEventListener("DOMContentLoaded", () => {
   const testReaperConnectionButton = document.querySelector(
     "#test-reaper-connection",
   );
-  const markerCreationEnabled = document.querySelector(
-    "#marker-creation-enabled",
-  );
-  const markerCreationState = document.querySelector("#marker-creation-state");
-  const markerMode = document.querySelector("#marker-mode");
+  const markerModeToggleButton = document.querySelector("#toggle-marker-mode");
+  const markerModeResult = document.querySelector("#marker-mode-result");
   const reaperOscSettingsResult = document.querySelector(
     "#reaper-osc-settings-result",
   );
@@ -158,8 +155,9 @@ window.addEventListener("DOMContentLoaded", () => {
   );
   const sceneEditorResult = document.querySelector("#scene-editor-result");
   const midiInputSelect = document.querySelector("#midi-input-select");
-  const startMidiLogButton = document.querySelector("#start-midi-log");
-  const stopMidiLogButton = document.querySelector("#stop-midi-log");
+  const midiListenerToggleButton = document.querySelector(
+    "#toggle-midi-listener",
+  );
   const midiLogResult = document.querySelector("#midi-log-result");
   const midiSceneResult = document.querySelector("#midi-scene-result");
   const midiSceneNameResult = document.querySelector("#midi-scene-name-result");
@@ -169,6 +167,7 @@ window.addEventListener("DOMContentLoaded", () => {
   const markerDecision = document.querySelector("#marker-decision");
   const midiLog = document.querySelector("#midi-log");
   let dLiveLinkRunning = false;
+  let markerMode = "always";
   let savedReaperOscTarget;
   let sceneNamesCount;
   let loadedSceneListName;
@@ -194,6 +193,20 @@ window.addEventListener("DOMContentLoaded", () => {
           ? " (" + sceneNamesCount + " names loaded)"
           : "")
       : "Loaded Scene List: No scene list loaded";
+  }
+
+  function updateMidiListenerToggle() {
+    midiListenerToggleButton.textContent = dLiveLinkRunning
+      ? "Stop Listening"
+      : "Start Listening";
+    midiListenerToggleButton.disabled =
+      !dLiveLinkRunning && !midiInputSelect.value;
+  }
+
+  function updateMarkerModeToggle() {
+    markerModeToggleButton.textContent =
+      "Marker Mode: " +
+      (markerMode === "always" ? "Always" : "Recording Only");
   }
 
   function updateSceneListDisplay() {
@@ -233,58 +246,33 @@ window.addEventListener("DOMContentLoaded", () => {
 
   async function loadMarkerMode() {
     try {
-      markerMode.value = await invoke("get_marker_mode");
+      markerMode = await invoke("get_marker_mode");
+      updateMarkerModeToggle();
     } catch (error) {
-      reaperOscSettingsResult.textContent =
-        `Could not load marker mode: ${error}`;
+      markerModeResult.textContent = `Could not load marker mode: ${error}`;
+      markerModeResult.hidden = false;
+    } finally {
+      markerModeToggleButton.disabled = false;
     }
   }
 
   void loadMarkerMode();
 
-  function updateMarkerCreationState() {
-    markerCreationState.textContent = markerCreationEnabled.checked ? "On" : "Off";
-  }
-
-  async function loadMarkerCreationEnabled() {
+  markerModeToggleButton.addEventListener("click", async () => {
+    const nextMode =
+      markerMode === "always" ? "recording_only" : "always";
+    markerModeToggleButton.disabled = true;
     try {
-      markerCreationEnabled.checked = await invoke("get_marker_creation_enabled");
-      updateMarkerCreationState();
+      await invoke("save_marker_mode", { mode: nextMode });
+      markerMode = nextMode;
+      updateMarkerModeToggle();
+      markerModeResult.hidden = true;
     } catch (error) {
-      midiLogResult.textContent = `Could not load marker creation setting: ${error}`;
-    }
-  }
-
-  void loadMarkerCreationEnabled();
-
-  markerCreationEnabled.addEventListener("change", async () => {
-    markerCreationEnabled.disabled = true;
-    try {
-      await invoke("save_marker_creation_enabled", {
-        enabled: markerCreationEnabled.checked,
-      });
-      updateMarkerCreationState();
-    } catch (error) {
-      midiLogResult.textContent = `Could not save marker creation setting: ${error}`;
-      await loadMarkerCreationEnabled();
-    } finally {
-      markerCreationEnabled.disabled = false;
-    }
-  });
-
-  markerMode.addEventListener("change", async () => {
-    markerMode.disabled = true;
-    try {
-      await invoke("save_marker_mode", { mode: markerMode.value });
-      reaperOscSettingsResult.textContent =
-        "Marker Mode: " +
-        (markerMode.value === "always" ? "Always" : "Recording Only");
-    } catch (error) {
-      reaperOscSettingsResult.textContent =
-        `Could not save marker mode: ${error}`;
+      markerModeResult.textContent = `Could not save marker mode: ${error}`;
+      markerModeResult.hidden = false;
       await loadMarkerMode();
     } finally {
-      markerMode.disabled = false;
+      markerModeToggleButton.disabled = false;
     }
   });
 
@@ -731,7 +719,7 @@ window.addEventListener("DOMContentLoaded", () => {
           : "No MIDI inputs available";
       }
 
-      startMidiLogButton.disabled = dLiveLinkRunning || !midiInputSelect.value;
+      updateMidiListenerToggle();
       updateReadiness();
     } catch (error) {
       midiResult.textContent = `Could not refresh MIDI inputs: ${error}`;
@@ -940,7 +928,7 @@ window.addEventListener("DOMContentLoaded", () => {
 
   midiInputSelect.addEventListener("change", async () => {
     const portName = midiInputSelect.value;
-    startMidiLogButton.disabled = dLiveLinkRunning || !portName;
+    updateMidiListenerToggle();
     updateReadiness();
 
     if (!portName) {
@@ -955,7 +943,7 @@ window.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  startMidiLogButton.addEventListener("click", async () => {
+  async function startMidiListener() {
     if (dLiveLinkRunning) {
       midiLogResult.textContent = "dLive Listener is already running";
       return;
@@ -968,7 +956,7 @@ window.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    startMidiLogButton.disabled = true;
+    midiListenerToggleButton.disabled = true;
     midiLogResult.textContent = "Starting dLive Listener...";
     midiSceneResult.textContent = "";
     midiSceneNameResult.textContent = "";
@@ -1003,28 +991,34 @@ window.addEventListener("DOMContentLoaded", () => {
       dLiveLinkRunning = true;
       updateReadiness();
       midiLogResult.textContent = "dLive Listener is listening for scene recalls";
-      stopMidiLogButton.disabled = false;
     } catch (error) {
       midiLogResult.textContent = `Could not start dLive Listener: ${error}`;
     } finally {
-      startMidiLogButton.disabled = dLiveLinkRunning;
+      updateMidiListenerToggle();
     }
-  });
+  }
 
-  stopMidiLogButton.addEventListener("click", async () => {
-    stopMidiLogButton.disabled = true;
+  async function stopMidiListener() {
+    midiListenerToggleButton.disabled = true;
     midiLogResult.textContent = "Stopping dLive Listener...";
 
     try {
       await invoke("stop_midi_log");
       dLiveLinkRunning = false;
       updateReadiness();
-      startMidiLogButton.disabled = !midiInputSelect.value;
       midiLogResult.textContent = "dLive Listener stopped";
     } catch (error) {
       midiLogResult.textContent = `Could not stop dLive Listener: ${error}`;
     } finally {
-      stopMidiLogButton.disabled = !dLiveLinkRunning;
+      updateMidiListenerToggle();
+    }
+  }
+
+  midiListenerToggleButton.addEventListener("click", () => {
+    if (dLiveLinkRunning) {
+      void stopMidiListener();
+    } else {
+      void startMidiListener();
     }
   });
 });

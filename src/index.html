@@ -36,28 +36,17 @@
           <h2 id="live-listener-heading">dLive Listener</h2>
           <p class="live-control-note">Listens for dLive scene recalls.</p>
           <div class="control-row">
-            <button id="start-midi-log" type="button" disabled>Start Listening</button>
-            <button id="stop-midi-log" type="button" disabled>Stop Listening</button>
+            <button id="toggle-midi-listener" class="live-toggle-button" type="button" disabled>Start Listening</button>
           </div>
           <p id="midi-log-result" role="status" aria-live="polite"></p>
         </section>
         <section class="app-section" aria-labelledby="marker-behavior-heading">
           <h2 id="marker-behavior-heading">Marker Behavior</h2>
-          <p class="live-control-note">Controls whether detected scene recalls create REAPER markers and when they are allowed.</p>
-          <div class="marker-controls">
-            <label class="marker-setting-control" for="marker-creation-enabled">
-              <span>Marker Creation:</span>
-              <input id="marker-creation-enabled" type="checkbox" checked />
-              <span id="marker-creation-state">On</span>
-            </label>
-            <label class="marker-setting-control" for="marker-mode">
-              <span>Marker Mode:</span>
-              <select id="marker-mode">
-                <option value="always">Always</option>
-                <option value="recording_only">Recording Only</option>
-              </select>
-            </label>
+          <p class="live-control-note">Controls when detected scene recalls create REAPER markers.</p>
+          <div class="control-row">
+            <button id="toggle-marker-mode" class="live-toggle-button" type="button" disabled>Marker Mode: Always</button>
           </div>
+          <p id="marker-mode-result" role="status" aria-live="polite" hidden></p>
         </section>
         <section class="app-section" aria-labelledby="live-scene-heading">
           <h2 id="live-scene-heading">Last Detected Scene</h2>
