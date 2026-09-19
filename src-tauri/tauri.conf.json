@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "dLive_REAPER_Link",
+  "productName": "dLive REAPER Link",
   "version": "0.1.0",
   "identifier": "com.elisavoielevac.dlive-reaper-link",
   "build": {
@@ -10,7 +10,7 @@
     "withGlobalTauri": true,
     "windows": [
       {
-        "title": "dLive_REAPER_Link",
+        "title": "dLive REAPER Link",
         "width": 800,
         "height": 600
       }
