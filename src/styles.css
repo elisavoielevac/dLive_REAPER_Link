@@ -110,7 +110,8 @@ button:disabled {
 #midi-log-result,
 #midi-scene-result,
 #midi-scene-name-result,
-#midi-scene-diagnostics {
+#midi-scene-diagnostics,
+#marker-decision {
   min-height: 1.5rem;
   overflow-wrap: anywhere;
 }

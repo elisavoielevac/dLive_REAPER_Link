@@ -10,6 +10,7 @@ window.addEventListener("DOMContentLoaded", () => {
   const testReaperConnectionButton = document.querySelector(
     "#test-reaper-connection",
   );
+  const markerMode = document.querySelector("#marker-mode");
   const reaperOscSettingsResult = document.querySelector(
     "#reaper-osc-settings-result",
   );
@@ -108,6 +109,7 @@ window.addEventListener("DOMContentLoaded", () => {
   const midiSceneDiagnostics = document.querySelector(
     "#midi-scene-diagnostics",
   );
+  const markerDecision = document.querySelector("#marker-decision");
   const midiLog = document.querySelector("#midi-log");
   let dLiveLinkRunning = false;
   let savedReaperOscTarget;
@@ -171,6 +173,33 @@ window.addEventListener("DOMContentLoaded", () => {
   }
 
   void loadReaperOscSettings();
+
+  async function loadMarkerMode() {
+    try {
+      markerMode.value = await invoke("get_marker_mode");
+    } catch (error) {
+      reaperOscSettingsResult.textContent =
+        `Could not load marker mode: ${error}`;
+    }
+  }
+
+  void loadMarkerMode();
+
+  markerMode.addEventListener("change", async () => {
+    markerMode.disabled = true;
+    try {
+      await invoke("save_marker_mode", { mode: markerMode.value });
+      reaperOscSettingsResult.textContent =
+        "Marker Mode: " +
+        (markerMode.value === "always" ? "Always" : "Recording Only");
+    } catch (error) {
+      reaperOscSettingsResult.textContent =
+        `Could not save marker mode: ${error}`;
+      await loadMarkerMode();
+    } finally {
+      markerMode.disabled = false;
+    }
+  });
 
   saveReaperOscSettingsButton.addEventListener("click", async () => {
     const host = reaperOscHost.value.trim();
@@ -857,6 +886,7 @@ window.addEventListener("DOMContentLoaded", () => {
     midiSceneResult.textContent = "";
     midiSceneNameResult.textContent = "";
     midiSceneDiagnostics.textContent = "";
+    markerDecision.textContent = "";
     midiLog.textContent = "";
 
     try {
@@ -877,6 +907,9 @@ window.addEventListener("DOMContentLoaded", () => {
             midiSceneDiagnostics.textContent = `Scene recall: raw Program Change ${program}, MIDI channel ${channel}, bank ${bank} (LSB ${bankLsb}), decoded scene ${sceneNumber}, ${sceneName}`;
           },
         );
+        await window.__TAURI__.event.listen("marker-decision", (event) => {
+          markerDecision.textContent = event.payload;
+        });
       }
 
       await invoke("start_midi_log", { portName });
