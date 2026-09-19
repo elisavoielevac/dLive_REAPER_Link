@@ -141,12 +141,13 @@ fn start_midi_log(
         .find(|port| midi_input.port_name(port).ok().as_deref() == Some(port_name.as_str()))
         .ok_or_else(|| format!("MIDI input not found: {port_name}"))?;
 
-    let previous_connection = state
+    let mut active_connection = state
         .connection
         .lock()
-        .map_err(|_| "MIDI log state is unavailable".to_string())?
-        .take();
-    drop(previous_connection);
+        .map_err(|_| "MIDI log state is unavailable".to_string())?;
+    if active_connection.is_some() {
+        return Err("dLive Link is already running".to_string());
+    }
 
     let recent_scene_recall = Arc::clone(&state.recent_scene_recall);
     let scene_names = Arc::clone(&scene_names.names);
@@ -177,10 +178,6 @@ fn start_midi_log(
         )
         .map_err(|error| error.to_string())?;
 
-    let mut active_connection = state
-        .connection
-        .lock()
-        .map_err(|_| "MIDI log state is unavailable".to_string())?;
     *active_connection = Some(connection);
 
     Ok(())

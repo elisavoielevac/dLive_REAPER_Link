@@ -18,6 +18,7 @@ window.addEventListener("DOMContentLoaded", () => {
   const midiSceneResult = document.querySelector("#midi-scene-result");
   const midiSceneNameResult = document.querySelector("#midi-scene-name-result");
   const midiLog = document.querySelector("#midi-log");
+  let dLiveLinkRunning = false;
   let unlistenMidiMessages;
 
   async function loadSceneFilePath() {
@@ -77,7 +78,7 @@ window.addEventListener("DOMContentLoaded", () => {
         }),
       );
       midiInputSelect.disabled = !inputs.length;
-      startMidiLogButton.disabled = !inputs.length;
+      startMidiLogButton.disabled = dLiveLinkRunning || !inputs.length;
     } catch (error) {
       midiResult.textContent = `Error: ${error}`;
     } finally {
@@ -86,6 +87,11 @@ window.addEventListener("DOMContentLoaded", () => {
   });
 
   startMidiLogButton.addEventListener("click", async () => {
+    if (dLiveLinkRunning) {
+      midiLogResult.textContent = "dLive Link is already running";
+      return;
+    }
+
     const portName = midiInputSelect.value;
 
     if (!portName) {
@@ -118,11 +124,12 @@ window.addEventListener("DOMContentLoaded", () => {
       }
 
       await invoke("start_midi_log", { portName });
+      dLiveLinkRunning = true;
       midiLogResult.textContent = `Logging ${portName}`;
     } catch (error) {
       midiLogResult.textContent = `Error: ${error}`;
     } finally {
-      startMidiLogButton.disabled = false;
+      startMidiLogButton.disabled = dLiveLinkRunning;
     }
   });
 });
