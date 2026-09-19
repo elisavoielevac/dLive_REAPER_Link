@@ -14,6 +14,7 @@ window.addEventListener("DOMContentLoaded", () => {
   );
   const midiInputSelect = document.querySelector("#midi-input-select");
   const startMidiLogButton = document.querySelector("#start-midi-log");
+  const stopMidiLogButton = document.querySelector("#stop-midi-log");
   const midiLogResult = document.querySelector("#midi-log-result");
   const midiSceneResult = document.querySelector("#midi-scene-result");
   const midiSceneNameResult = document.querySelector("#midi-scene-name-result");
@@ -126,10 +127,27 @@ window.addEventListener("DOMContentLoaded", () => {
       await invoke("start_midi_log", { portName });
       dLiveLinkRunning = true;
       midiLogResult.textContent = `Logging ${portName}`;
+      stopMidiLogButton.disabled = false;
     } catch (error) {
       midiLogResult.textContent = `Error: ${error}`;
     } finally {
       startMidiLogButton.disabled = dLiveLinkRunning;
+    }
+  });
+
+  stopMidiLogButton.addEventListener("click", async () => {
+    stopMidiLogButton.disabled = true;
+    midiLogResult.textContent = "Stopping dLive Link...";
+
+    try {
+      await invoke("stop_midi_log");
+      dLiveLinkRunning = false;
+      startMidiLogButton.disabled = !midiInputSelect.value;
+      midiLogResult.textContent = "dLive Link stopped";
+    } catch (error) {
+      midiLogResult.textContent = `Error: ${error}`;
+    } finally {
+      stopMidiLogButton.disabled = !dLiveLinkRunning;
     }
   });
 });

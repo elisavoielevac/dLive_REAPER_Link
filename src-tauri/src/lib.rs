@@ -184,6 +184,19 @@ fn start_midi_log(
 }
 
 #[tauri::command]
+fn stop_midi_log(state: tauri::State<'_, MidiLogState>) -> Result<(), String> {
+    let connection = state
+        .connection
+        .lock()
+        .map_err(|_| "MIDI log state is unavailable".to_string())?
+        .take()
+        .ok_or_else(|| "dLive Link is not running".to_string())?;
+    drop(connection);
+
+    Ok(())
+}
+
+#[tauri::command]
 fn test_reaper_osc_marker() -> Result<String, String> {
     reaper_osc::ReaperOscClient::default()
         .create_marker("OSC TEST")
@@ -206,6 +219,7 @@ pub fn run() {
             reveal_scene_file,
             reload_scene_names,
             start_midi_log,
+            stop_midi_log,
             test_reaper_osc_marker
         ])
         .run(tauri::generate_context!())
