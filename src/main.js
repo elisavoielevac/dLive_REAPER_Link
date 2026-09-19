@@ -2,6 +2,59 @@ const { invoke } = window.__TAURI__.core;
 const { open: openFileDialog, save: saveFileDialog } = window.__TAURI__.dialog;
 
 window.addEventListener("DOMContentLoaded", () => {
+  const appViews = [
+    {
+      button: document.querySelector("#tab-live"),
+      panel: document.querySelector("#view-live"),
+    },
+    {
+      button: document.querySelector("#tab-setup"),
+      panel: document.querySelector("#view-setup"),
+    },
+    {
+      button: document.querySelector("#tab-scene-lists"),
+      panel: document.querySelector("#view-scene-lists"),
+    },
+    {
+      button: document.querySelector("#tab-diagnostics"),
+      panel: document.querySelector("#view-diagnostics"),
+    },
+  ];
+
+  function showAppView(index, focusTab = false) {
+    appViews.forEach((view, viewIndex) => {
+      const selected = viewIndex === index;
+      view.button.setAttribute("aria-selected", String(selected));
+      view.panel.hidden = !selected;
+    });
+
+    if (focusTab) {
+      appViews[index].button.focus();
+    }
+  }
+
+  appViews.forEach((view, index) => {
+    view.button.addEventListener("click", () => showAppView(index));
+    view.button.addEventListener("keydown", (event) => {
+      let nextIndex = index;
+
+      if (event.key === "ArrowRight") {
+        nextIndex = (index + 1) % appViews.length;
+      } else if (event.key === "ArrowLeft") {
+        nextIndex = (index - 1 + appViews.length) % appViews.length;
+      } else if (event.key === "Home") {
+        nextIndex = 0;
+      } else if (event.key === "End") {
+        nextIndex = appViews.length - 1;
+      } else {
+        return;
+      }
+
+      event.preventDefault();
+      showAppView(nextIndex, true);
+    });
+  });
+
   const reaperOscHost = document.querySelector("#reaper-osc-host");
   const reaperOscPort = document.querySelector("#reaper-osc-port");
   const saveReaperOscSettingsButton = document.querySelector(

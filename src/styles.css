@@ -37,6 +37,23 @@ body {
   text-align: center;
 }
 
+.app-tabs {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.5rem;
+  margin: 1rem 0 0;
+}
+
+.app-tabs button[aria-selected="true"] {
+  border-color: #1f2933;
+  color: #ffffff;
+  background: #1f2933;
+}
+
+.app-view[hidden] {
+  display: none;
+}
+
 .readiness-summary {
   border-top: 1px solid #cbd2d9;
   padding: 1rem 0;
@@ -401,6 +418,12 @@ input {
     background: #1f2933;
   }
 
+  .app-tabs button[aria-selected="true"] {
+    border-color: #f5f7fa;
+    color: #111827;
+    background: #f5f7fa;
+  }
+
   .app-section,
   .readiness-summary,
   select,
@@ -440,6 +463,10 @@ input {
 }
 
 @media (max-width: 36rem) {
+  .app-tabs {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .container {
     padding: 1.25rem 1rem;
   }
