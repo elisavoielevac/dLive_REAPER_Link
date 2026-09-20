@@ -95,21 +95,15 @@ impl MarkerMode {
     }
 }
 
-struct MarkerModeSettings {
+struct MarkerModeState {
     mode: Arc<RwLock<MarkerMode>>,
-    path: PathBuf,
 }
 
-impl MarkerModeSettings {
-    fn load(path: PathBuf) -> Result<Self, std::io::Error> {
-        let mode = fs::read_to_string(&path)
-            .ok()
-            .and_then(|value| MarkerMode::from_str(&value))
-            .unwrap_or(MarkerMode::RecordingOnly);
-        Ok(Self {
-            mode: Arc::new(RwLock::new(mode)),
-            path,
-        })
+impl MarkerModeState {
+    fn new() -> Self {
+        Self {
+            mode: Arc::new(RwLock::new(MarkerMode::RecordingOnly)),
+        }
     }
 
     fn get(&self) -> Result<MarkerMode, String> {
@@ -120,10 +114,6 @@ impl MarkerModeSettings {
     }
 
     fn save(&self, mode: MarkerMode) -> Result<(), String> {
-        if let Some(parent) = self.path.parent() {
-            fs::create_dir_all(parent).map_err(|error| error.to_string())?;
-        }
-        fs::write(&self.path, format!("{}\n", mode.as_str())).map_err(|error| error.to_string())?;
         *self
             .mode
             .write()
@@ -544,14 +534,14 @@ fn create_reaper_marker(
 }
 
 #[tauri::command]
-fn get_marker_mode(settings: tauri::State<'_, MarkerModeSettings>) -> Result<String, String> {
+fn get_marker_mode(settings: tauri::State<'_, MarkerModeState>) -> Result<String, String> {
     Ok(settings.get()?.as_str().to_string())
 }
 
 #[tauri::command]
 fn save_marker_mode(
     mode: String,
-    settings: tauri::State<'_, MarkerModeSettings>,
+    settings: tauri::State<'_, MarkerModeState>,
 ) -> Result<(), String> {
     let mode = MarkerMode::from_str(&mode).ok_or_else(|| "invalid marker mode".to_string())?;
     settings.save(mode)
@@ -753,7 +743,7 @@ fn start_midi_log(
     scene_names: tauri::State<'_, SceneNames>,
     reaper_osc_settings: tauri::State<'_, ReaperOscSettings>,
     reaper_osc_feedback: tauri::State<'_, reaper_osc::ReaperOscFeedback>,
-    marker_mode_settings: tauri::State<'_, MarkerModeSettings>,
+    marker_mode_settings: tauri::State<'_, MarkerModeState>,
 ) -> Result<(), String> {
     let midi_input =
         midir::MidiInput::new("dLive REAPER Link").map_err(|error| error.to_string())?;
@@ -829,7 +819,7 @@ fn start_midi_log(
                         let decision = match marker_mode
                             .read()
                             .map(|mode| *mode)
-                            .unwrap_or(MarkerMode::Always)
+                            .unwrap_or(MarkerMode::RecordingOnly)
                         {
                             MarkerMode::Always => match create_reaper_marker(
                                 &reaper_osc_config,
@@ -927,7 +917,6 @@ pub fn run() {
             let app_config_dir = app.path().app_config_dir()?;
             let midi_input_selection = app_config_dir.join("selected_midi_input.txt");
             let reaper_osc_settings = app_config_dir.join("reaper_osc_settings.txt");
-            let marker_mode_settings = app_config_dir.join("marker_mode.txt");
             let scene_list_selection = app_config_dir.join("loaded_scene_list.txt");
             app.manage(SceneNames::load(&scene_file)?);
             app.manage(MidiInputSelection {
@@ -941,7 +930,7 @@ pub fn run() {
             )?;
             app.manage(reaper_osc_settings);
             app.manage(reaper_osc_feedback);
-            app.manage(MarkerModeSettings::load(marker_mode_settings)?);
+            app.manage(MarkerModeState::new());
             app.manage(SceneListSelection {
                 path: scene_list_selection,
             });
