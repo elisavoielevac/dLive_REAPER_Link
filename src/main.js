@@ -953,6 +953,10 @@ window.addEventListener("DOMContentLoaded", () => {
       let completed = false;
       if (pendingSceneListNameAction === "create") {
         completed = await createSceneList(name, sceneListNamePromptResult);
+        if (completed) {
+          sceneListBackupResult.textContent =
+            `Scene list created and loaded: ${loadedSceneListName}`;
+        }
       } else if (pendingSceneListNameAction === "save_as") {
         completed = await saveSceneListBackup(name);
       }
