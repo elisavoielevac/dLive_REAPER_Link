@@ -81,6 +81,11 @@
               <button id="refresh-scene-list-backups" type="button">Refresh</button>
             </div>
 
+            <div class="scene-list-actions">
+              <button id="rename-scene-list" type="button" disabled>Rename</button>
+              <button id="delete-scene-list" type="button" disabled>Delete</button>
+            </div>
+
             <p id="scene-file-path" class="scene-list-current" role="status" aria-live="polite"></p>
             <p id="scene-file-location" class="scene-file-location" role="status" aria-live="polite" hidden></p>
 
@@ -215,6 +220,18 @@
         <div class="scene-list-confirmation-actions">
           <button id="cancel-scene-list-import" type="button">Cancel</button>
           <button id="confirm-scene-list-import" type="button">Import</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="delete-scene-list-confirmation" class="scene-list-confirmation" role="alertdialog" aria-modal="true" aria-labelledby="delete-scene-list-heading" hidden>
+      <div class="scene-list-confirmation-dialog">
+        <h2 id="delete-scene-list-heading">Delete saved scene list?</h2>
+        <p id="delete-scene-list-name"></p>
+        <p>This removes the saved scene list from the app. This cannot be undone.</p>
+        <div class="scene-list-confirmation-actions">
+          <button id="cancel-delete-scene-list" type="button">Cancel</button>
+          <button id="confirm-delete-scene-list" type="button">Delete</button>
         </div>
       </div>
     </div>

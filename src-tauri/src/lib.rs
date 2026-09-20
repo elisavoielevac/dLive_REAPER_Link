@@ -363,6 +363,40 @@ impl SceneNames {
         self.import_from(&self.scene_list_path(scene_list_name)?)
     }
 
+    fn rename_scene_list(&self, scene_list_name: &str, new_name: &str) -> Result<String, String> {
+        let source_path = self.scene_list_path(scene_list_name)?;
+        if !source_path.is_file() {
+            return Err("scene list does not exist".to_string());
+        }
+
+        let renamed_scene_list = sanitize_scene_list_name(new_name);
+        if renamed_scene_list.is_empty() {
+            return Err("scene list name is required".to_string());
+        }
+        if renamed_scene_list == scene_list_name {
+            return Err("scene list name is unchanged".to_string());
+        }
+
+        let destination_path = self.scene_list_path(&renamed_scene_list)?;
+        if destination_path.exists() {
+            return Err(
+                "a scene list with that name already exists; choose a different name".to_string(),
+            );
+        }
+
+        fs::rename(source_path, destination_path).map_err(|error| error.to_string())?;
+        Ok(renamed_scene_list)
+    }
+
+    fn delete_scene_list(&self, scene_list_name: &str) -> Result<(), String> {
+        let scene_list_path = self.scene_list_path(scene_list_name)?;
+        if !scene_list_path.is_file() {
+            return Err("scene list does not exist".to_string());
+        }
+
+        fs::remove_file(scene_list_path).map_err(|error| error.to_string())
+    }
+
     fn import_as_scene_list(&self, source: &Path) -> Result<(String, usize), String> {
         let source_name = source
             .file_stem()
@@ -736,6 +770,45 @@ fn load_scene_list(
 }
 
 #[tauri::command]
+fn rename_scene_list(
+    scene_list_name: String,
+    new_name: String,
+    scene_names: tauri::State<'_, SceneNames>,
+    scene_list_selection: tauri::State<'_, SceneListSelection>,
+) -> Result<String, String> {
+    let renamed_scene_list = scene_names.rename_scene_list(&scene_list_name, &new_name)?;
+    if scene_list_selection
+        .load()
+        .map_err(|error| error.to_string())?
+        .as_deref()
+        == Some(scene_list_name.as_str())
+    {
+        scene_list_selection
+            .save(&renamed_scene_list)
+            .map_err(|error| error.to_string())?;
+    }
+    Ok(renamed_scene_list)
+}
+
+#[tauri::command]
+fn delete_scene_list(
+    scene_list_name: String,
+    scene_names: tauri::State<'_, SceneNames>,
+    scene_list_selection: tauri::State<'_, SceneListSelection>,
+) -> Result<(), String> {
+    if scene_list_selection
+        .load()
+        .map_err(|error| error.to_string())?
+        .as_deref()
+        == Some(scene_list_name.as_str())
+    {
+        return Err("cannot delete the loaded scene list; load another list first".to_string());
+    }
+
+    scene_names.delete_scene_list(&scene_list_name)
+}
+
+#[tauri::command]
 fn start_midi_log(
     port_name: String,
     app: tauri::AppHandle,
@@ -957,6 +1030,8 @@ pub fn run() {
             save_scene_list_as,
             create_scene_list,
             load_scene_list,
+            rename_scene_list,
+            delete_scene_list,
             start_midi_log,
             stop_midi_log,
             test_reaper_osc_marker
