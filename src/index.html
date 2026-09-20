@@ -17,8 +17,8 @@
 
       <nav class="app-tabs" aria-label="App views" role="tablist">
         <button id="tab-live" type="button" role="tab" aria-selected="true" aria-controls="view-live">Live</button>
-        <button id="tab-setup" type="button" role="tab" aria-selected="false" aria-controls="view-setup">Setup</button>
         <button id="tab-scene-lists" type="button" role="tab" aria-selected="false" aria-controls="view-scene-lists">Scene Lists</button>
+        <button id="tab-setup" type="button" role="tab" aria-selected="false" aria-controls="view-setup">Setup</button>
         <button id="tab-diagnostics" type="button" role="tab" aria-selected="false" aria-controls="view-diagnostics">Diagnostics</button>
       </nav>
 
@@ -86,36 +86,86 @@
       <section id="view-scene-lists" class="app-view" role="tabpanel" aria-labelledby="tab-scene-lists" hidden>
         <section class="app-section" aria-labelledby="scene-names-heading">
           <h2 id="scene-names-heading">Scene Lists</h2>
-          <div class="scene-file-actions">
-            <p id="scene-file-path" role="status" aria-live="polite"></p>
-            <button id="reveal-scene-file" type="button">Reveal Scene List File</button>
-            <button id="reload-scene-names" type="button">Reload Loaded Scene List</button>
+          <p class="scene-list-note">The loaded scene list provides the names used for REAPER markers.</p>
+
+          <div class="scene-list-workflow">
+            <section class="scene-list-group" aria-labelledby="current-scene-list-heading">
+              <div class="scene-list-group-header">
+                <h3 id="current-scene-list-heading">Current / Loaded Scene List</h3>
+                <p>Marker names come from this list.</p>
+              </div>
+              <p id="scene-file-path" class="scene-list-current" role="status" aria-live="polite"></p>
+              <div class="scene-file-actions">
+                <button id="reload-scene-names" type="button">Reload Loaded Scene List</button>
+                <button id="reveal-scene-file" type="button">Reveal File Location</button>
+              </div>
+              <p id="scene-file-location" class="scene-file-location" role="status" aria-live="polite"></p>
+              <p id="scene-file-reveal-result" role="status" aria-live="polite"></p>
+              <p id="scene-file-reload-result" role="status" aria-live="polite"></p>
+            </section>
+
+            <section class="scene-list-group" aria-labelledby="create-scene-list-heading">
+              <div class="scene-list-group-header">
+                <h3 id="create-scene-list-heading">Create New Scene List</h3>
+                <p>Start a blank app-managed scene list and load it immediately.</p>
+              </div>
+              <div class="scene-backup-actions">
+                <label for="scene-backup-name">Scene list name for Create New or Save As</label>
+                <input id="scene-backup-name" type="text" placeholder="Name this scene list" autocomplete="off" />
+                <button id="create-scene-list" type="button">Create New Scene List</button>
+              </div>
+            </section>
+
+            <section class="scene-list-group" aria-labelledby="load-scene-list-heading">
+              <div class="scene-list-group-header">
+                <h3 id="load-scene-list-heading">Load Existing Scene List</h3>
+                <p>Choose an app-managed scene list to use for marker names.</p>
+              </div>
+              <div class="scene-backup-actions">
+                <label for="scene-list-backups">App-managed scene lists</label>
+                <select id="scene-list-backups" disabled>
+                  <option value="">No saved scene lists</option>
+                </select>
+                <button id="refresh-scene-list-backups" type="button">Refresh Scene Lists</button>
+                <button id="restore-scene-list-backup" type="button" disabled>Load Scene List</button>
+              </div>
+              <p id="scene-list-backup-result" role="status" aria-live="polite"></p>
+            </section>
+
+            <section class="scene-list-group" aria-labelledby="save-scene-list-heading">
+              <div class="scene-list-group-header">
+                <h3 id="save-scene-list-heading">Save As Scene List</h3>
+                <p>Create a new named scene list from the currently loaded one.</p>
+              </div>
+              <div class="scene-backup-actions">
+                <button id="save-scene-list-backup" type="button">Save As Scene List</button>
+              </div>
+              <p class="scene-list-detail">Uses the scene list name field above.</p>
+            </section>
+
+            <section class="scene-list-group" aria-labelledby="edit-scene-list-heading">
+              <div class="scene-list-group-header">
+                <h3 id="edit-scene-list-heading">Edit Scene List</h3>
+                <p>Edit the loaded list. Blank scene slots are allowed.</p>
+              </div>
+              <div class="scene-list-actions">
+                <button id="open-scene-editor" type="button" disabled>Edit Loaded Scene List</button>
+              </div>
+            </section>
+
+            <section class="scene-list-group" aria-labelledby="import-export-scene-list-heading">
+              <div class="scene-list-group-header">
+                <h3 id="import-export-scene-list-heading">Import / Export</h3>
+                <p>Export saves an external copy. Import brings an external .txt into the app.</p>
+              </div>
+              <div class="scene-list-actions">
+                <button id="import-scene-list" type="button">Import Scene List</button>
+                <button id="export-scene-list" type="button">Export Scene List</button>
+              </div>
+              <p class="scene-list-detail">Export does not change the loaded scene list. Import loads the imported list after confirmation.</p>
+              <p id="scene-list-transfer-result" role="status" aria-live="polite"></p>
+            </section>
           </div>
-          <p id="scene-file-location" class="scene-file-location" role="status" aria-live="polite"></p>
-          <p id="scene-file-reveal-result" role="status" aria-live="polite"></p>
-          <p id="scene-file-reload-result" role="status" aria-live="polite"></p>
-          <div class="scene-list-actions">
-            <button id="open-scene-editor" type="button" disabled>Edit Scene List</button>
-            <button id="export-scene-list" type="button">Export Scene List</button>
-            <button id="import-scene-list" type="button">Import Scene List</button>
-          </div>
-          <p class="scene-list-note">The loaded scene list provides the names used for REAPER markers. Export saves an external copy without changing it. Import brings an external text file into the app as a new loaded scene list.</p>
-          <p id="scene-list-transfer-result" role="status" aria-live="polite"></p>
-          <h3>Saved Scene Lists</h3>
-          <div class="scene-backup-actions">
-            <label for="scene-backup-name">New scene list name</label>
-            <input id="scene-backup-name" type="text" placeholder="Name this scene list" autocomplete="off" />
-            <button id="create-scene-list" type="button">Create New Scene List</button>
-            <button id="save-scene-list-backup" type="button">Save As Scene List</button>
-            <label for="scene-list-backups">Saved scene lists</label>
-            <select id="scene-list-backups" disabled>
-              <option value="">No saved scene lists</option>
-            </select>
-            <button id="refresh-scene-list-backups" type="button">Refresh Scene Lists</button>
-            <button id="restore-scene-list-backup" type="button" disabled>Load Scene List</button>
-          </div>
-          <p class="scene-backup-note">Saved scene lists are app-managed copies. Loading one replaces the currently loaded scene list used for marker names.</p>
-          <p id="scene-list-backup-result" role="status" aria-live="polite"></p>
         </section>
       </section>
 

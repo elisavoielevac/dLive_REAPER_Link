@@ -221,6 +221,47 @@ button:disabled {
   overflow-wrap: anywhere;
 }
 
+.scene-list-workflow {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.scene-list-group {
+  border-top: 1px solid #e4e7eb;
+  padding-top: 1rem;
+}
+
+.scene-list-group:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.scene-list-group-header {
+  display: grid;
+  gap: 0.125rem;
+}
+
+.scene-list-group-header h3 {
+  margin: 0;
+}
+
+.scene-list-group-header p {
+  margin: 0;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.scene-list-current {
+  font-weight: 600;
+  color: inherit;
+}
+
+.scene-list-detail {
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
 .scene-list-actions {
   display: flex;
   align-items: center;
@@ -473,6 +514,7 @@ input {
 
   .app-section,
   .readiness-summary,
+  .scene-list-group,
   select,
   input,
   #midi-log,

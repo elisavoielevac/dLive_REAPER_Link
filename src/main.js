@@ -8,12 +8,12 @@ window.addEventListener("DOMContentLoaded", () => {
       panel: document.querySelector("#view-live"),
     },
     {
-      button: document.querySelector("#tab-setup"),
-      panel: document.querySelector("#view-setup"),
-    },
-    {
       button: document.querySelector("#tab-scene-lists"),
       panel: document.querySelector("#view-scene-lists"),
+    },
+    {
+      button: document.querySelector("#tab-setup"),
+      panel: document.querySelector("#view-setup"),
     },
     {
       button: document.querySelector("#tab-diagnostics"),
@@ -228,7 +228,7 @@ window.addEventListener("DOMContentLoaded", () => {
     sceneFilePath.textContent =
       "Loaded Scene List: " +
       loadedSceneListLabel +
-      (loadedSceneListName ? " (used for marker names)" : "");
+      (loadedSceneListName ? " (marker names source)" : "");
     sceneEditorFilePath.textContent =
       "Editing loaded scene list: " + loadedSceneListLabel;
     sceneFileLocation.textContent = sceneListFilePath
