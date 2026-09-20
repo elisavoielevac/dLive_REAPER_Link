@@ -43,7 +43,6 @@
 }
 
 body {
-  min-width: 320px;
   margin: 0;
   background: var(--color-bg);
 }
@@ -108,7 +107,7 @@ body {
 
 .readiness-items {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 11rem), 1fr));
   gap: var(--space-2);
   margin-top: var(--space-3);
 }
@@ -264,6 +263,11 @@ button:disabled {
   grid-template-columns: auto minmax(9rem, 1fr) auto minmax(6rem, 8rem) auto auto;
 }
 
+.setup-row > *,
+.scene-list-picker > * {
+  min-width: 0;
+}
+
 .live-controls {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -278,10 +282,10 @@ button:disabled {
   align-items: center;
   justify-content: center;
   gap: var(--space-1);
-  aspect-ratio: 1.1;
   min-width: 0;
+  height: 6.25rem;
+  min-height: 6.25rem;
   border-color: var(--color-border);
-  min-height: 7.5rem;
   padding: var(--space-3);
   color: var(--color-text);
   text-align: center;
@@ -319,6 +323,26 @@ button:disabled {
   background: #7a5418;
 }
 
+.live-toggle-button:hover:not(:disabled) {
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.16);
+}
+
+.live-toggle-button:not(.is-listening):not(.is-always):not(.is-recording-only):hover {
+  background: var(--color-panel-strong);
+}
+
+.live-toggle-button.is-listening:hover {
+  background: var(--color-active-strong);
+}
+
+.live-toggle-button.is-always:hover {
+  background: #285f5d;
+}
+
+.live-toggle-button.is-recording-only:hover {
+  background: #7a5418;
+}
+
 .live-toggle-button.is-listening .live-toggle-label,
 .live-toggle-button.is-always .live-toggle-label,
 .live-toggle-button.is-recording-only .live-toggle-label {
@@ -345,7 +369,7 @@ button:disabled {
 
 .diagnostics-status {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
   gap: var(--space-2);
   margin-top: var(--space-3);
 }
@@ -377,7 +401,7 @@ button:disabled {
 
 .diagnostics-summary {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr));
   gap: var(--space-3);
   margin-top: var(--space-3);
 }
@@ -466,8 +490,8 @@ button:disabled {
 .scene-editor {
   display: grid;
   flex: 1 1 auto;
-  min-height: 14rem;
-  height: min(55vh, 30rem);
+  min-height: 10rem;
+  height: min(48vh, 30rem);
   margin-top: var(--space-2);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
@@ -482,6 +506,7 @@ button:disabled {
   display: grid;
   place-items: center;
   padding: var(--space-3);
+  overflow: auto;
   background: rgb(8 9 10 / 0.82);
 }
 
@@ -496,6 +521,7 @@ button:disabled {
   display: grid;
   place-items: center;
   padding: var(--space-3);
+  overflow: auto;
   background: rgb(8 9 10 / 0.82);
 }
 
@@ -519,6 +545,8 @@ button:disabled {
 
 .scene-list-confirmation-dialog {
   width: min(32rem, 100%);
+  max-height: calc(100vh - 1.5rem);
+  overflow-y: auto;
   padding: var(--space-4);
 }
 
@@ -554,6 +582,8 @@ button:disabled {
 
 .scene-editor-confirmation-dialog {
   width: min(28rem, 100%);
+  max-height: calc(100vh - 1.5rem);
+  overflow-y: auto;
   padding: var(--space-4);
 }
 
@@ -568,6 +598,7 @@ button:disabled {
 .scene-editor-dialog {
   width: min(62rem, 100%);
   max-height: calc(100vh - 1.5rem);
+  min-width: 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -654,7 +685,7 @@ input::placeholder {
 #midi-log {
   width: 100%;
   min-height: 5rem;
-  max-height: 12rem;
+  max-height: min(12rem, 35vh);
   margin: var(--space-2) 0 0;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
@@ -711,8 +742,15 @@ input::placeholder {
     grid-template-columns: 1fr;
   }
 
-  .live-controls {
-    width: 100%;
+  .live-toggle-state {
+    font-size: 1rem;
+  }
+
+  .scene-list-actions button,
+  .scene-editor-actions button,
+  .scene-editor-confirmation-actions button,
+  .scene-list-confirmation-actions button {
+    flex: 1 1 auto;
   }
 
   .scene-editor-panel,
@@ -723,5 +761,16 @@ input::placeholder {
   .scene-editor-dialog {
     max-height: calc(100vh - 1rem);
     padding: var(--space-4);
+  }
+}
+
+@media (max-height: 34rem) {
+  .scene-editor {
+    min-height: 8rem;
+    height: 40vh;
+  }
+
+  .scene-editor-dialog {
+    max-height: calc(100vh - 1rem);
   }
 }
