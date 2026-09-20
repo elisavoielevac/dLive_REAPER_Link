@@ -416,7 +416,7 @@ window.addEventListener("DOMContentLoaded", () => {
   async function openSceneEditor() {
     if (!loadedSceneListName) {
       sceneListBackupResult.textContent =
-        "Save the current scene names as a scene list before editing";
+        "Create, load, or import a list before editing";
       return;
     }
     sceneEditorPanel.hidden = false;
@@ -551,8 +551,8 @@ window.addEventListener("DOMContentLoaded", () => {
       const prompt = document.createElement("option");
       prompt.value = "";
       prompt.textContent = backups.length
-        ? "Select a saved scene list"
-        : "No saved scene lists";
+        ? "Select a list"
+        : "No saved lists";
       sceneListBackups.replaceChildren(
         prompt,
         ...backups.map((backupName) => {
@@ -570,8 +570,8 @@ window.addEventListener("DOMContentLoaded", () => {
 
       if (showStatus) {
         sceneListBackupResult.textContent = backups.length
-          ? `${backups.length} saved scene list${backups.length === 1 ? "" : "s"} available`
-          : "No saved scene lists";
+          ? `${backups.length} saved list${backups.length === 1 ? "" : "s"} available`
+          : "No saved lists";
       }
     } catch (error) {
       sceneListBackups.disabled = true;
@@ -651,7 +651,7 @@ window.addEventListener("DOMContentLoaded", () => {
   function requestSceneListBackupRestore() {
     const backupName = sceneListBackups.value;
     if (!backupName) {
-      sceneListBackupResult.textContent = "Select a saved scene list to load";
+      sceneListBackupResult.textContent = "Select a list to load";
       return;
     }
 

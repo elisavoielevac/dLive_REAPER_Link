@@ -96,7 +96,7 @@
               </div>
               <p id="scene-file-path" class="scene-list-current" role="status" aria-live="polite"></p>
               <div class="scene-file-actions">
-                <button id="reload-scene-names" type="button">Reload Loaded Scene List</button>
+                <button id="reload-scene-names" type="button">Reload</button>
                 <button id="reveal-scene-file" type="button">Reveal File Location</button>
               </div>
               <p id="scene-file-location" class="scene-file-location" role="status" aria-live="polite"></p>
@@ -106,50 +106,50 @@
 
             <section class="scene-list-group" aria-labelledby="create-scene-list-heading">
               <div class="scene-list-group-header">
-                <h3 id="create-scene-list-heading">Create New Scene List</h3>
-                <p>Start a blank app-managed scene list and load it immediately.</p>
+                <h3 id="create-scene-list-heading">Create New</h3>
+                <p>Start a blank app-managed list and load it immediately.</p>
               </div>
               <div class="scene-backup-actions">
-                <label for="scene-backup-name">Scene list name for Create New or Save As</label>
-                <input id="scene-backup-name" type="text" placeholder="Name this scene list" autocomplete="off" />
-                <button id="create-scene-list" type="button">Create New Scene List</button>
+                <label for="scene-backup-name">Name for Create New or Save As</label>
+                <input id="scene-backup-name" type="text" placeholder="Name this list" autocomplete="off" />
+                <button id="create-scene-list" type="button">Create New</button>
               </div>
             </section>
 
             <section class="scene-list-group" aria-labelledby="load-scene-list-heading">
               <div class="scene-list-group-header">
-                <h3 id="load-scene-list-heading">Load Existing Scene List</h3>
-                <p>Choose an app-managed scene list to use for marker names.</p>
+                <h3 id="load-scene-list-heading">Load Existing</h3>
+                <p>Choose an app-managed list to use for marker names.</p>
               </div>
               <div class="scene-backup-actions">
-                <label for="scene-list-backups">App-managed scene lists</label>
+                <label for="scene-list-backups">App-managed lists</label>
                 <select id="scene-list-backups" disabled>
-                  <option value="">No saved scene lists</option>
+                  <option value="">No saved lists</option>
                 </select>
-                <button id="refresh-scene-list-backups" type="button">Refresh Scene Lists</button>
-                <button id="restore-scene-list-backup" type="button" disabled>Load Scene List</button>
+                <button id="refresh-scene-list-backups" type="button">Refresh</button>
+                <button id="restore-scene-list-backup" type="button" disabled>Load</button>
               </div>
               <p id="scene-list-backup-result" role="status" aria-live="polite"></p>
             </section>
 
             <section class="scene-list-group" aria-labelledby="save-scene-list-heading">
               <div class="scene-list-group-header">
-                <h3 id="save-scene-list-heading">Save As Scene List</h3>
-                <p>Create a new named scene list from the currently loaded one.</p>
+                <h3 id="save-scene-list-heading">Save As</h3>
+                <p>Create a new named list from the currently loaded one.</p>
               </div>
               <div class="scene-backup-actions">
-                <button id="save-scene-list-backup" type="button">Save As Scene List</button>
+                <button id="save-scene-list-backup" type="button">Save As</button>
               </div>
-              <p class="scene-list-detail">Uses the scene list name field above.</p>
+              <p class="scene-list-detail">Uses the name field above.</p>
             </section>
 
             <section class="scene-list-group" aria-labelledby="edit-scene-list-heading">
               <div class="scene-list-group-header">
-                <h3 id="edit-scene-list-heading">Edit Scene List</h3>
+                <h3 id="edit-scene-list-heading">Edit</h3>
                 <p>Edit the loaded list. Blank scene slots are allowed.</p>
               </div>
               <div class="scene-list-actions">
-                <button id="open-scene-editor" type="button" disabled>Edit Loaded Scene List</button>
+                <button id="open-scene-editor" type="button" disabled>Edit</button>
               </div>
             </section>
 
@@ -159,8 +159,8 @@
                 <p>Export saves an external copy. Import brings an external .txt into the app.</p>
               </div>
               <div class="scene-list-actions">
-                <button id="import-scene-list" type="button">Import Scene List</button>
-                <button id="export-scene-list" type="button">Export Scene List</button>
+                <button id="import-scene-list" type="button">Import</button>
+                <button id="export-scene-list" type="button">Export</button>
               </div>
               <p class="scene-list-detail">Export does not change the loaded scene list. Import loads the imported list after confirmation.</p>
               <p id="scene-list-transfer-result" role="status" aria-live="polite"></p>
@@ -187,11 +187,11 @@
         <div class="scene-editor-dialog-header">
           <h2 id="scene-editor-heading">Loaded Scene List Editor</h2>
           <div class="scene-editor-actions">
-            <button id="save-scene-names" type="button" disabled>Save Scene List</button>
+            <button id="save-scene-names" type="button" disabled>Save</button>
             <input id="scene-editor-save-as-name" type="text" placeholder="New scene list name" autocomplete="off" />
-            <button id="create-scene-list-from-editor" type="button" disabled>Create New Scene List</button>
-            <button id="save-scene-list-as" type="button" disabled>Save As Scene List</button>
-            <button id="close-scene-editor" type="button">Close Editor</button>
+            <button id="create-scene-list-from-editor" type="button" disabled>Create New</button>
+            <button id="save-scene-list-as" type="button" disabled>Save As</button>
+            <button id="close-scene-editor" type="button">Close</button>
           </div>
         </div>
         <p id="scene-editor-file-path" class="scene-editor-file-path"></p>
@@ -233,7 +233,7 @@
         <p>This replaces the loaded scene list used for marker names. The selected scene list will be used immediately.</p>
         <div class="scene-list-confirmation-actions">
           <button id="cancel-scene-list-backup-restore" type="button">Cancel</button>
-          <button id="confirm-scene-list-backup-restore" type="button">Load Scene List</button>
+          <button id="confirm-scene-list-backup-restore" type="button">Load</button>
         </div>
       </div>
     </div>
