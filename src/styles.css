@@ -430,7 +430,7 @@ button:disabled {
 
 .scene-list-picker {
   display: grid;
-  grid-template-columns: auto minmax(12rem, 1fr) auto auto;
+  grid-template-columns: auto minmax(12rem, 1fr) auto auto auto;
   align-items: center;
   gap: var(--space-3);
 }
@@ -503,6 +503,11 @@ button:disabled {
   display: none;
 }
 
+#scene-list-name-prompt,
+#delete-scene-list-confirmation {
+  z-index: 30;
+}
+
 .scene-list-confirmation-dialog,
 .scene-editor-confirmation-dialog,
 .scene-editor-dialog {
@@ -526,7 +531,8 @@ button:disabled {
 }
 
 .scene-list-confirmation-dialog label,
-.scene-list-confirmation-dialog input {
+.scene-list-confirmation-dialog input,
+.scene-list-confirmation-dialog select {
   display: block;
   width: 100%;
   margin-top: var(--space-3);
@@ -595,7 +601,8 @@ button:disabled {
 
 body.scene-editor-open,
 body.scene-list-import-open,
-body.scene-list-backup-restore-open,
+body.scene-list-switch-open,
+body.manage-scene-lists-open,
 body.scene-list-name-prompt-open {
   overflow: hidden;
 }

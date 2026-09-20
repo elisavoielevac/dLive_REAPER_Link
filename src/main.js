@@ -97,11 +97,18 @@ window.addEventListener("DOMContentLoaded", () => {
     "#save-scene-list-backup",
   );
   const sceneListBackups = document.querySelector("#scene-list-backups");
-  const refreshSceneListBackupsButton = document.querySelector(
-    "#refresh-scene-list-backups",
+  const manageSceneListsButton = document.querySelector("#manage-scene-lists");
+  const manageSceneListsDialog = document.querySelector(
+    "#manage-scene-lists-dialog",
   );
-  const restoreSceneListBackupButton = document.querySelector(
-    "#restore-scene-list-backup",
+  const manageSceneListsSelect = document.querySelector(
+    "#manage-scene-lists-select",
+  );
+  const manageSceneListsResult = document.querySelector(
+    "#manage-scene-lists-result",
+  );
+  const closeManageSceneListsButton = document.querySelector(
+    "#close-manage-scene-lists",
   );
   const renameSceneListButton = document.querySelector("#rename-scene-list");
   const deleteSceneListButton = document.querySelector("#delete-scene-list");
@@ -144,17 +151,23 @@ window.addEventListener("DOMContentLoaded", () => {
   const confirmSceneListImportButton = document.querySelector(
     "#confirm-scene-list-import",
   );
-  const restoreSceneListBackupConfirmation = document.querySelector(
-    "#restore-scene-list-backup-confirmation",
+  const switchSceneListConfirmation = document.querySelector(
+    "#switch-scene-list-confirmation",
   );
-  const restoreSceneListBackupName = document.querySelector(
-    "#restore-scene-list-backup-name",
+  const switchSceneListName = document.querySelector(
+    "#switch-scene-list-name",
   );
-  const cancelSceneListBackupRestoreButton = document.querySelector(
-    "#cancel-scene-list-backup-restore",
+  const switchSceneListResult = document.querySelector(
+    "#switch-scene-list-result",
   );
-  const confirmSceneListBackupRestoreButton = document.querySelector(
-    "#confirm-scene-list-backup-restore",
+  const cancelSwitchSceneListButton = document.querySelector(
+    "#cancel-switch-scene-list",
+  );
+  const discardSwitchSceneListButton = document.querySelector(
+    "#discard-switch-scene-list",
+  );
+  const saveSwitchSceneListButton = document.querySelector(
+    "#save-switch-scene-list",
   );
   const sceneEditorPanel = document.querySelector("#scene-editor-panel");
   const closeSceneEditorButton = document.querySelector("#close-scene-editor");
@@ -167,11 +180,17 @@ window.addEventListener("DOMContentLoaded", () => {
   const createSceneListUnsavedResult = document.querySelector(
     "#create-scene-list-unsaved-result",
   );
-  const keepEditingSceneNamesButton = document.querySelector(
-    "#keep-editing-scene-names",
+  const discardSceneEditorResult = document.querySelector(
+    "#discard-scene-editor-result",
+  );
+  const cancelDiscardSceneEditorButton = document.querySelector(
+    "#cancel-discard-scene-editor",
   );
   const discardSceneNameChangesButton = document.querySelector(
     "#discard-scene-name-changes",
+  );
+  const saveAndCloseSceneEditorButton = document.querySelector(
+    "#save-and-close-scene-editor",
   );
   const cancelCreateSceneListUnsavedButton = document.querySelector(
     "#cancel-create-scene-list-unsaved",
@@ -213,7 +232,7 @@ window.addEventListener("DOMContentLoaded", () => {
   let sceneListFilePath;
   let sceneEditorDirty = false;
   let pendingSceneListImportPath;
-  let pendingSceneListBackupName;
+  let pendingSceneListSwitchName;
   let pendingSceneListNameAction;
   let pendingSceneListRenameName;
   let pendingSceneListDeleteName;
@@ -463,6 +482,7 @@ window.addEventListener("DOMContentLoaded", () => {
 
   function closeSceneEditorNow() {
     discardSceneEditorConfirmation.hidden = true;
+    discardSceneEditorResult.textContent = "";
     sceneEditorPanel.hidden = true;
     document.body.classList.remove("scene-editor-open");
     sceneEditor.replaceChildren();
@@ -472,8 +492,9 @@ window.addEventListener("DOMContentLoaded", () => {
 
   function closeSceneEditor() {
     if (sceneEditorDirty) {
+      discardSceneEditorResult.textContent = "";
       discardSceneEditorConfirmation.hidden = false;
-      discardSceneNameChangesButton.focus();
+      saveAndCloseSceneEditorButton.focus();
       return;
     }
 
@@ -655,52 +676,73 @@ window.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  async function refreshSceneListBackups(showStatus = true) {
-    refreshSceneListBackupsButton.disabled = true;
+  function setSavedSceneListOptions(select, sceneLists, selectedName) {
+    const prompt = document.createElement("option");
+    prompt.value = "";
+    prompt.textContent = sceneLists.length ? "Select a list" : "No saved lists";
+    select.replaceChildren(
+      prompt,
+      ...sceneLists.map((sceneListName) => {
+        const option = document.createElement("option");
+        option.value = sceneListName;
+        option.textContent = sceneListName;
+        return option;
+      }),
+    );
+    select.disabled = !sceneLists.length;
+    select.value = sceneLists.includes(selectedName) ? selectedName : "";
+  }
 
+  async function refreshSceneListBackups(showStatus = true) {
+    const managedSelection = manageSceneListsSelect.value;
     try {
-      const backups = await invoke("list_saved_scene_lists");
-      const prompt = document.createElement("option");
-      prompt.value = "";
-      prompt.textContent = backups.length
-        ? "Select a list"
-        : "No saved lists";
-      sceneListBackups.replaceChildren(
-        prompt,
-        ...backups.map((backupName) => {
-          const option = document.createElement("option");
-          option.value = backupName;
-          option.textContent = backupName;
-          return option;
-        }),
+      const sceneLists = await invoke("list_saved_scene_lists");
+      setSavedSceneListOptions(sceneListBackups, sceneLists, loadedSceneListName);
+      setSavedSceneListOptions(
+        manageSceneListsSelect,
+        sceneLists,
+        managedSelection || loadedSceneListName,
       );
-      sceneListBackups.disabled = !backups.length;
-      sceneListBackups.value = backups.includes(loadedSceneListName)
-        ? loadedSceneListName
-        : "";
-      updateSelectedSceneListActions();
+      manageSceneListsButton.disabled = !sceneLists.length;
+      updateManageSceneListActions();
 
       if (showStatus) {
-        sceneListBackupResult.textContent = backups.length
-          ? `${backups.length} saved list${backups.length === 1 ? "" : "s"} available`
+        sceneListBackupResult.textContent = sceneLists.length
+          ? `${sceneLists.length} saved list${sceneLists.length === 1 ? "" : "s"} available`
           : "No saved lists";
       }
     } catch (error) {
       sceneListBackups.disabled = true;
-      restoreSceneListBackupButton.disabled = true;
+      manageSceneListsSelect.disabled = true;
+      manageSceneListsButton.disabled = true;
       renameSceneListButton.disabled = true;
       deleteSceneListButton.disabled = true;
       sceneListBackupResult.textContent = `Could not load saved scene lists: ${error}`;
-    } finally {
-      refreshSceneListBackupsButton.disabled = false;
     }
   }
 
-  function updateSelectedSceneListActions() {
-    const hasSelection = Boolean(sceneListBackups.value);
-    restoreSceneListBackupButton.disabled = !hasSelection;
-    renameSceneListButton.disabled = !hasSelection;
-    deleteSceneListButton.disabled = !hasSelection;
+  function updateManageSceneListActions() {
+    const sceneListName = manageSceneListsSelect.value;
+    renameSceneListButton.disabled = !sceneListName;
+    deleteSceneListButton.disabled =
+      !sceneListName || sceneListName === loadedSceneListName;
+    manageSceneListsResult.textContent =
+      sceneListName && sceneListName === loadedSceneListName
+        ? "Load a different list before deleting this one"
+        : "";
+  }
+
+  function closeManageSceneLists() {
+    manageSceneListsDialog.hidden = true;
+    document.body.classList.remove("manage-scene-lists-open");
+    manageSceneListsResult.textContent = "";
+  }
+
+  async function openManageSceneLists() {
+    await refreshSceneListBackups(false);
+    manageSceneListsDialog.hidden = false;
+    document.body.classList.add("manage-scene-lists-open");
+    manageSceneListsSelect.focus();
   }
 
   async function renameSelectedSceneList(newName) {
@@ -721,8 +763,8 @@ window.addEventListener("DOMContentLoaded", () => {
         updateReadiness();
       }
       await refreshSceneListBackups(false);
-      sceneListBackups.value = renamedName;
-      updateSelectedSceneListActions();
+      manageSceneListsSelect.value = renamedName;
+      updateManageSceneListActions();
       sceneListBackupResult.textContent = `Scene list renamed: ${currentName} to ${renamedName}`;
       return true;
     } catch (error) {
@@ -737,7 +779,7 @@ window.addEventListener("DOMContentLoaded", () => {
   }
 
   function requestSceneListDelete() {
-    const sceneListName = sceneListBackups.value;
+    const sceneListName = manageSceneListsSelect.value;
     if (!sceneListName) {
       sceneListBackupResult.textContent = "Select a list to delete";
       return;
@@ -800,8 +842,7 @@ window.addEventListener("DOMContentLoaded", () => {
       updateSceneListDisplay();
       updateReadiness();
       await refreshSceneListBackups(false);
-      sceneListBackups.value = backupName;
-      updateSelectedSceneListActions();
+      updateManageSceneListActions();
       sceneListBackupResult.textContent = `Scene list saved and loaded: ${backupName}`;
       return true;
     } catch (error) {
@@ -829,8 +870,7 @@ window.addEventListener("DOMContentLoaded", () => {
       updateSceneListDisplay();
       updateReadiness();
       await refreshSceneListBackups(false);
-      sceneListBackups.value = sceneListName;
-      updateSelectedSceneListActions();
+      updateManageSceneListActions();
       result.textContent = "New scene list created and loaded: " + sceneListName;
 
       if (!sceneEditorPanel.hidden) {
@@ -860,61 +900,71 @@ window.addEventListener("DOMContentLoaded", () => {
     return created;
   }
 
-  function closeSceneListBackupRestoreConfirmation() {
-    restoreSceneListBackupConfirmation.hidden = true;
-    document.body.classList.remove("scene-list-backup-restore-open");
-    pendingSceneListBackupName = undefined;
+  function closeSwitchSceneListConfirmation() {
+    switchSceneListConfirmation.hidden = true;
+    document.body.classList.remove("scene-list-switch-open");
+    switchSceneListResult.textContent = "";
+    pendingSceneListSwitchName = undefined;
   }
 
-  function requestSceneListBackupRestore() {
-    const backupName = sceneListBackups.value;
-    if (!backupName) {
-      sceneListBackupResult.textContent = "Select a list to load";
-      return;
-    }
-
-    if (!sceneEditorPanel.hidden && sceneEditorDirty) {
-      sceneEditorResult.textContent =
-        "Save or discard your scene list edits before loading another list";
-      discardSceneEditorConfirmation.hidden = false;
-      return;
-    }
-
-    pendingSceneListBackupName = backupName;
-    restoreSceneListBackupName.textContent = `Scene list to load: ${backupName}`;
-    restoreSceneListBackupConfirmation.hidden = false;
-    document.body.classList.add("scene-list-backup-restore-open");
-    confirmSceneListBackupRestoreButton.focus();
+  function restoreLoadedSceneListSelection() {
+    sceneListBackups.value = loadedSceneListName || "";
   }
 
-  async function restoreSceneListBackup() {
-    if (!pendingSceneListBackupName) {
-      return;
-    }
-
-    cancelSceneListBackupRestoreButton.disabled = true;
-    confirmSceneListBackupRestoreButton.disabled = true;
-    sceneListBackupResult.textContent = "Loading selected scene list...";
-
+  async function loadSceneList(sceneListName) {
+    sceneListBackups.disabled = true;
+    sceneListBackupResult.textContent = "Loading scene list...";
     try {
-      sceneNamesCount = await invoke("load_scene_list", {
-        sceneListName: pendingSceneListBackupName,
-      });
-      loadedSceneListName = pendingSceneListBackupName;
+      sceneNamesCount = await invoke("load_scene_list", { sceneListName });
+      loadedSceneListName = sceneListName;
       updateSceneListDisplay();
       updateReadiness();
+      await refreshSceneListBackups(false);
       sceneListBackupResult.textContent = `Scene list loaded: ${loadedSceneListName}`;
-      closeSceneListBackupRestoreConfirmation();
 
       if (!sceneEditorPanel.hidden) {
         await loadSceneEditor();
       }
+      return true;
     } catch (error) {
+      restoreLoadedSceneListSelection();
+      sceneListBackups.disabled = sceneListBackups.options.length <= 1;
       sceneListBackupResult.textContent = `Could not load selected scene list: ${error}`;
-    } finally {
-      cancelSceneListBackupRestoreButton.disabled = false;
-      confirmSceneListBackupRestoreButton.disabled = false;
+      return false;
     }
+  }
+
+  function requestSceneListLoad() {
+    const sceneListName = sceneListBackups.value;
+    if (!sceneListName || sceneListName === loadedSceneListName) {
+      restoreLoadedSceneListSelection();
+      return;
+    }
+
+    if (!sceneEditorPanel.hidden && sceneEditorDirty) {
+      pendingSceneListSwitchName = sceneListName;
+      switchSceneListName.textContent = `Load: ${sceneListName}`;
+      switchSceneListResult.textContent = "";
+      switchSceneListConfirmation.hidden = false;
+      document.body.classList.add("scene-list-switch-open");
+      saveSwitchSceneListButton.focus();
+      return;
+    }
+
+    void loadSceneList(sceneListName);
+  }
+
+  async function loadPendingSceneList() {
+    if (!pendingSceneListSwitchName) {
+      return false;
+    }
+
+    const sceneListName = pendingSceneListSwitchName;
+    const loaded = await loadSceneList(sceneListName);
+    if (loaded) {
+      closeSwitchSceneListConfirmation();
+    }
+    return loaded;
   }
 
   async function refreshMidiInputs({ autoStartSaved = false } = {}) {
@@ -1106,36 +1156,61 @@ window.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  refreshSceneListBackupsButton.addEventListener("click", () => {
-    void refreshSceneListBackups();
-  });
-
   sceneListBackups.addEventListener("change", () => {
-    updateSelectedSceneListActions();
+    requestSceneListLoad();
   });
 
-  restoreSceneListBackupButton.addEventListener(
-    "click",
-    requestSceneListBackupRestore,
-  );
+  manageSceneListsButton.addEventListener("click", () => {
+    void openManageSceneLists();
+  });
+
+  closeManageSceneListsButton.addEventListener("click", closeManageSceneLists);
+
+  manageSceneListsSelect.addEventListener("change", updateManageSceneListActions);
 
   renameSceneListButton.addEventListener("click", () => {
-    if (!sceneListBackups.value) {
+    if (!manageSceneListsSelect.value) {
       sceneListBackupResult.textContent = "Select a list to rename";
       return;
     }
-    openSceneListNamePrompt("rename", sceneListBackups.value);
+    openSceneListNamePrompt("rename", manageSceneListsSelect.value);
   });
 
   deleteSceneListButton.addEventListener("click", requestSceneListDelete);
 
-  cancelSceneListBackupRestoreButton.addEventListener("click", () => {
-    closeSceneListBackupRestoreConfirmation();
+  cancelSwitchSceneListButton.addEventListener("click", () => {
+    closeSwitchSceneListConfirmation();
+    restoreLoadedSceneListSelection();
     sceneListBackupResult.textContent = "Load cancelled; loaded scene list unchanged";
   });
 
-  confirmSceneListBackupRestoreButton.addEventListener("click", () => {
-    void restoreSceneListBackup();
+  discardSwitchSceneListButton.addEventListener("click", async () => {
+    discardSwitchSceneListButton.disabled = true;
+    saveSwitchSceneListButton.disabled = true;
+    cancelSwitchSceneListButton.disabled = true;
+    try {
+      await loadPendingSceneList();
+    } finally {
+      discardSwitchSceneListButton.disabled = false;
+      saveSwitchSceneListButton.disabled = false;
+      cancelSwitchSceneListButton.disabled = false;
+    }
+  });
+
+  saveSwitchSceneListButton.addEventListener("click", async () => {
+    discardSwitchSceneListButton.disabled = true;
+    saveSwitchSceneListButton.disabled = true;
+    cancelSwitchSceneListButton.disabled = true;
+    try {
+      const saved = await saveLoadedSceneListEdits(switchSceneListResult);
+      if (saved) {
+        await loadPendingSceneList();
+      }
+    } finally {
+      discardSwitchSceneListButton.disabled = false;
+      saveSwitchSceneListButton.disabled = false;
+      cancelSwitchSceneListButton.disabled = false;
+    }
   });
 
   cancelDeleteSceneListButton.addEventListener("click", () => {
@@ -1149,12 +1224,28 @@ window.addEventListener("DOMContentLoaded", () => {
 
   closeSceneEditorButton.addEventListener("click", closeSceneEditor);
 
-  keepEditingSceneNamesButton.addEventListener("click", () => {
+  cancelDiscardSceneEditorButton.addEventListener("click", () => {
     discardSceneEditorConfirmation.hidden = true;
     closeSceneEditorButton.focus();
   });
 
   discardSceneNameChangesButton.addEventListener("click", closeSceneEditorNow);
+
+  saveAndCloseSceneEditorButton.addEventListener("click", async () => {
+    cancelDiscardSceneEditorButton.disabled = true;
+    discardSceneNameChangesButton.disabled = true;
+    saveAndCloseSceneEditorButton.disabled = true;
+    try {
+      const saved = await saveLoadedSceneListEdits(discardSceneEditorResult);
+      if (saved) {
+        closeSceneEditorNow();
+      }
+    } finally {
+      cancelDiscardSceneEditorButton.disabled = false;
+      discardSceneNameChangesButton.disabled = false;
+      saveAndCloseSceneEditorButton.disabled = false;
+    }
+  });
 
   cancelCreateSceneListUnsavedButton.addEventListener("click", () => {
     closeCreateSceneListUnsavedConfirmation();

@@ -77,21 +77,15 @@
               <select id="scene-list-backups" disabled>
                 <option value="">No saved lists</option>
               </select>
-              <button id="restore-scene-list-backup" type="button" disabled>Load</button>
-              <button id="refresh-scene-list-backups" type="button">Refresh</button>
-            </div>
-
-            <div class="scene-list-actions">
-              <button id="rename-scene-list" type="button" disabled>Rename</button>
-              <button id="delete-scene-list" type="button" disabled>Delete</button>
+              <button id="open-scene-editor" type="button" disabled>Edit</button>
+              <button id="reload-scene-names" type="button" disabled>Reload</button>
+              <button id="manage-scene-lists" type="button" disabled>Manage Lists</button>
             </div>
 
             <p id="scene-file-path" class="scene-list-current" role="status" aria-live="polite"></p>
             <p id="scene-file-location" class="scene-file-location" role="status" aria-live="polite" hidden></p>
 
             <div class="scene-list-actions">
-              <button id="open-scene-editor" type="button" disabled>Edit</button>
-              <button id="reload-scene-names" type="button" disabled>Reload</button>
               <button id="reveal-scene-file" type="button">Reveal in Finder</button>
             </div>
 
@@ -174,11 +168,13 @@
       </section>
       <div id="discard-scene-editor-confirmation" class="scene-editor-confirmation" role="alertdialog" aria-modal="true" aria-labelledby="discard-scene-editor-heading" hidden>
         <div class="scene-editor-confirmation-dialog">
-          <h3 id="discard-scene-editor-heading">Discard unsaved changes?</h3>
+          <h3 id="discard-scene-editor-heading">Unsaved changes</h3>
           <p>Your edits to the loaded scene list will not be saved.</p>
+          <p id="discard-scene-editor-result" role="status" aria-live="polite"></p>
           <div class="scene-editor-confirmation-actions">
-            <button id="keep-editing-scene-names" type="button">Keep Editing</button>
-            <button id="discard-scene-name-changes" type="button">Discard Changes</button>
+            <button id="cancel-discard-scene-editor" type="button">Cancel</button>
+            <button id="discard-scene-name-changes" type="button">Discard</button>
+            <button id="save-and-close-scene-editor" type="button">Save</button>
           </div>
         </div>
       </div>
@@ -233,14 +229,31 @@
       </div>
     </div>
 
-    <div id="restore-scene-list-backup-confirmation" class="scene-list-confirmation" role="alertdialog" aria-modal="true" aria-labelledby="restore-scene-list-backup-heading" hidden>
+    <div id="switch-scene-list-confirmation" class="scene-list-confirmation" role="alertdialog" aria-modal="true" aria-labelledby="switch-scene-list-heading" hidden>
       <div class="scene-list-confirmation-dialog">
-        <h2 id="restore-scene-list-backup-heading">Load selected scene list?</h2>
-        <p id="restore-scene-list-backup-name"></p>
-        <p>This replaces the loaded list used for marker names.</p>
+        <h2 id="switch-scene-list-heading">Unsaved changes</h2>
+        <p id="switch-scene-list-name"></p>
+        <p id="switch-scene-list-result" role="status" aria-live="polite"></p>
         <div class="scene-list-confirmation-actions">
-          <button id="cancel-scene-list-backup-restore" type="button">Cancel</button>
-          <button id="confirm-scene-list-backup-restore" type="button">Load</button>
+          <button id="cancel-switch-scene-list" type="button">Cancel</button>
+          <button id="discard-switch-scene-list" type="button">Discard and Continue</button>
+          <button id="save-switch-scene-list" type="button">Save and Continue</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="manage-scene-lists-dialog" class="scene-list-confirmation" role="dialog" aria-modal="true" aria-labelledby="manage-scene-lists-heading" hidden>
+      <div class="scene-list-confirmation-dialog">
+        <h2 id="manage-scene-lists-heading">Manage Lists</h2>
+        <label for="manage-scene-lists-select">Scene List</label>
+        <select id="manage-scene-lists-select" disabled>
+          <option value="">No saved lists</option>
+        </select>
+        <p id="manage-scene-lists-result" role="status" aria-live="polite"></p>
+        <div class="scene-list-confirmation-actions">
+          <button id="close-manage-scene-lists" type="button">Close</button>
+          <button id="rename-scene-list" type="button" disabled>Rename</button>
+          <button id="delete-scene-list" type="button" disabled>Delete</button>
         </div>
       </div>
     </div>
