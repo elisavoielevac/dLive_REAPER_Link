@@ -1,6 +1,6 @@
 [package]
 name = "dlive-reaper-link"
-version = "0.1.0"
+version = "0.2.0-beta.1"
 description = "dLive scene recall marker bridge for REAPER"
 authors = []
 edition = "2021"
