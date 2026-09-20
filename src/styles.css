@@ -170,6 +170,15 @@ h3 {
   font-weight: 650;
 }
 
+h4 {
+  margin: var(--space-3) 0 0;
+  color: var(--color-muted);
+  font-size: 0.8125rem;
+  line-height: 1.4;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
 p {
   margin: var(--space-2) 0 0;
   color: var(--color-muted);
@@ -344,6 +353,42 @@ button:disabled {
   color: var(--color-muted);
   background: var(--color-bg-elevated);
   font-size: 0.875rem;
+}
+
+.diagnostics-group {
+  margin-top: var(--space-4);
+  border-top: 1px solid rgb(255 255 255 / 0.07);
+  padding-top: var(--space-4);
+}
+
+.diagnostics-group:first-of-type {
+  margin-top: var(--space-3);
+}
+
+.diagnostics-group h3 {
+  margin-top: 0;
+}
+
+.diagnostics-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+}
+
+.diagnostics-summary > div {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+  background: var(--color-bg-elevated);
+}
+
+.diagnostics-label {
+  margin: 0;
+  color: var(--color-subtle);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  text-transform: uppercase;
 }
 
 .scene-file-actions {

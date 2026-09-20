@@ -108,21 +108,44 @@
       <section id="view-diagnostics" class="app-view" role="tabpanel" aria-labelledby="tab-diagnostics" hidden>
         <section class="app-section" aria-labelledby="activity-diagnostics-heading">
           <h2 id="activity-diagnostics-heading">Diagnostics</h2>
-          <div class="diagnostics-status">
-            <p id="readiness-midi-input">MIDI Input: Not selected</p>
-            <p id="readiness-reaper-osc">REAPER OSC: Check settings</p>
-            <p id="midi-log-result" role="status" aria-live="polite"></p>
-            <p id="marker-mode-result" role="status" aria-live="polite" hidden></p>
-          </div>
-          <h3 id="last-detected-scene-heading">Last Detected Scene</h3>
-          <p id="midi-scene-result" role="status" aria-live="polite"></p>
-          <p id="midi-scene-name-result" role="status" aria-live="polite"></p>
-          <h3>Last Marker Result</h3>
-          <p id="marker-decision" role="status" aria-live="polite"></p>
-          <h3 id="midi-activity-heading">MIDI Activity</h3>
-          <pre id="midi-log" aria-live="polite" aria-labelledby="midi-activity-heading"></pre>
-          <h3 id="midi-scene-diagnostics-heading">Scene Recall Detail</h3>
-          <p id="midi-scene-diagnostics" role="status" aria-live="polite"></p>
+
+          <section class="diagnostics-group" aria-labelledby="last-activity-heading">
+            <h3 id="last-activity-heading">Last Activity</h3>
+            <div class="diagnostics-summary">
+              <div>
+                <p class="diagnostics-label">Scene</p>
+                <p id="midi-scene-result" role="status" aria-live="polite"></p>
+                <p id="midi-scene-name-result" role="status" aria-live="polite"></p>
+              </div>
+              <div>
+                <p class="diagnostics-label">Marker</p>
+                <p id="marker-decision" role="status" aria-live="polite"></p>
+              </div>
+            </div>
+          </section>
+
+          <section class="diagnostics-group" aria-labelledby="midi-diagnostics-heading">
+            <h3 id="midi-diagnostics-heading">MIDI</h3>
+            <div class="diagnostics-status">
+              <p id="readiness-midi-input">MIDI Input: Not selected</p>
+              <p id="midi-log-result" role="status" aria-live="polite"></p>
+            </div>
+            <h4 id="midi-scene-diagnostics-heading">Scene Detail</h4>
+            <p id="midi-scene-diagnostics" role="status" aria-live="polite"></p>
+          </section>
+
+          <section class="diagnostics-group" aria-labelledby="reaper-osc-diagnostics-heading">
+            <h3 id="reaper-osc-diagnostics-heading">REAPER OSC</h3>
+            <div class="diagnostics-status">
+              <p id="readiness-reaper-osc">REAPER OSC: Check settings</p>
+              <p id="marker-mode-result" role="status" aria-live="polite" hidden></p>
+            </div>
+          </section>
+
+          <section class="diagnostics-group" aria-labelledby="raw-log-heading">
+            <h3 id="raw-log-heading">Raw Log</h3>
+            <pre id="midi-log" aria-live="polite" aria-labelledby="raw-log-heading"></pre>
+          </section>
         </section>
       </section>
 
