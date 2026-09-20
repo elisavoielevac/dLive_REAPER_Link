@@ -550,8 +550,13 @@ window.addEventListener("DOMContentLoaded", () => {
     try {
       const destinationPath = await saveFileDialog({
         title: "Export Scene List",
-        defaultPath: "dLive_Scenes_export.txt",
-        filters: [{ name: "Text files", extensions: ["txt"] }],
+        defaultPath: "dLive_REAPER_Link_scene_list.drlscene",
+        filters: [
+          {
+            name: "dLive REAPER Link Scene Lists",
+            extensions: ["drlscene"],
+          },
+        ],
       });
 
       if (!destinationPath) {
@@ -576,14 +581,19 @@ window.addEventListener("DOMContentLoaded", () => {
       return;
     }
     importSceneListButton.disabled = true;
-    sceneListTransferResult.textContent = "Choose a .txt file to import...";
+    sceneListTransferResult.textContent = "Choose a scene list to import...";
 
     try {
       const sourcePath = await openFileDialog({
         title: "Import Scene List",
         multiple: false,
         directory: false,
-        filters: [{ name: "Text files", extensions: ["txt"] }],
+        filters: [
+          {
+            name: "Scene list files",
+            extensions: ["drlscene", "txt"],
+          },
+        ],
       });
 
       if (!sourcePath || Array.isArray(sourcePath)) {
@@ -945,14 +955,14 @@ window.addEventListener("DOMContentLoaded", () => {
 
   revealSceneFileButton.addEventListener("click", async () => {
     revealSceneFileButton.disabled = true;
-    sceneFileRevealResult.textContent = "Opening scene list file location...";
+    sceneFileRevealResult.textContent = "Opening scene lists folder...";
 
     try {
       await invoke("reveal_scene_file");
-      sceneFileRevealResult.textContent = "Scene list file location opened";
+      sceneFileRevealResult.textContent = "Scene lists folder opened";
     } catch (error) {
       sceneFileRevealResult.textContent =
-        `Could not open scene list file location: ${error}`;
+        `Could not open scene lists folder: ${error}`;
     } finally {
       revealSceneFileButton.disabled = false;
     }

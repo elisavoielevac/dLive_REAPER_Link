@@ -640,8 +640,12 @@ fn reveal_scene_file(
     app: tauri::AppHandle,
     scene_names: tauri::State<'_, SceneNames>,
 ) -> Result<(), String> {
+    fs::create_dir_all(&scene_names.scene_lists_dir).map_err(|error| error.to_string())?;
     app.opener()
-        .reveal_item_in_dir(&scene_names.path)
+        .open_path(
+            scene_names.scene_lists_dir.to_string_lossy().into_owned(),
+            None::<&str>,
+        )
         .map_err(|error| error.to_string())
 }
 
