@@ -41,30 +41,30 @@
       </section>
 
       <section id="view-setup" class="app-view" role="tabpanel" aria-labelledby="tab-setup" hidden>
-        <section class="app-section" aria-labelledby="midi-link-heading">
-          <h2 id="midi-link-heading">MIDI / dLive Listener Setup</h2>
-        <div class="control-row">
-          <button id="list-midi-inputs" type="button">Refresh</button>
-          <label for="midi-input-select">MIDI input</label>
-          <select id="midi-input-select" disabled>
-            <option value="">List MIDI inputs first</option>
-          </select>
-        </div>
-        <p id="midi-inputs-result" role="status" aria-live="polite"></p>
-      </section>
-        <section class="app-section" aria-labelledby="reaper-connection-heading">
-        <h2 id="reaper-connection-heading">REAPER Connection</h2>
-        <div class="reaper-osc-settings">
-          <label for="reaper-osc-host">REAPER OSC Host</label>
-          <input id="reaper-osc-host" type="text" autocomplete="off" spellcheck="false" />
-          <label for="reaper-osc-port">REAPER OSC Port</label>
-          <input id="reaper-osc-port" type="number" min="1" max="65535" inputmode="numeric" />
-          <button id="save-reaper-osc-settings" type="button">Save</button>
-          <button id="test-reaper-connection" type="button">Test</button>
-        </div>
-        <p class="reaper-osc-note">Enable OSC in REAPER. Feedback to app: 127.0.0.1:49102.</p>
-        <p id="reaper-osc-settings-result" role="status" aria-live="polite"></p>
-      </section>
+        <section class="app-section setup-section" aria-labelledby="midi-link-heading">
+          <h2 id="midi-link-heading">MIDI</h2>
+          <div class="setup-row">
+            <label for="midi-input-select">Input</label>
+            <select id="midi-input-select" disabled>
+              <option value="">List MIDI inputs first</option>
+            </select>
+            <button id="list-midi-inputs" type="button">Refresh</button>
+          </div>
+          <p id="midi-inputs-result" role="status" aria-live="polite"></p>
+        </section>
+        <section class="app-section setup-section" aria-labelledby="reaper-connection-heading">
+          <h2 id="reaper-connection-heading">REAPER OSC</h2>
+          <div class="setup-row setup-row-osc">
+            <label for="reaper-osc-host">Host</label>
+            <input id="reaper-osc-host" type="text" autocomplete="off" spellcheck="false" />
+            <label for="reaper-osc-port">Port</label>
+            <input id="reaper-osc-port" type="number" min="1" max="65535" inputmode="numeric" />
+            <button id="save-reaper-osc-settings" type="button">Save</button>
+            <button id="test-reaper-connection" type="button">Test</button>
+          </div>
+          <p class="reaper-osc-note">Enable OSC in REAPER. Feedback: 127.0.0.1:49102.</p>
+          <p id="reaper-osc-settings-result" role="status" aria-live="polite"></p>
+        </section>
       </section>
 
       <section id="view-scene-lists" class="app-view" role="tabpanel" aria-labelledby="tab-scene-lists" hidden>

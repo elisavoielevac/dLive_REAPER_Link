@@ -239,6 +239,22 @@ button:disabled {
   margin-top: var(--space-3);
 }
 
+.setup-section {
+  max-width: 100%;
+}
+
+.setup-row {
+  display: grid;
+  grid-template-columns: auto minmax(12rem, 1fr) auto;
+  align-items: center;
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+}
+
+.setup-row-osc {
+  grid-template-columns: auto minmax(9rem, 1fr) auto minmax(6rem, 8rem) auto auto;
+}
+
 .live-controls {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -609,6 +625,7 @@ input::placeholder {
 
   .control-row,
   .reaper-osc-settings,
+  .setup-row,
   .scene-file-actions,
   .scene-list-picker,
   .scene-list-actions,
@@ -621,6 +638,11 @@ input::placeholder {
   }
 
   .scene-list-picker {
+    grid-template-columns: 1fr;
+  }
+
+  .setup-row,
+  .setup-row-osc {
     grid-template-columns: 1fr;
   }
 
