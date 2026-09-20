@@ -35,7 +35,7 @@
           </button>
           <button id="toggle-marker-mode" class="live-toggle-button" type="button" disabled>
             <span class="live-toggle-label">Marker Mode</span>
-            <span id="marker-mode-toggle-state" class="live-toggle-state">Always</span>
+            <span id="marker-mode-toggle-state" class="live-toggle-state">Recording Only</span>
           </button>
         </section>
       </section>
@@ -177,6 +177,18 @@
           <div class="scene-editor-confirmation-actions">
             <button id="keep-editing-scene-names" type="button">Keep Editing</button>
             <button id="discard-scene-name-changes" type="button">Discard Changes</button>
+          </div>
+        </div>
+      </div>
+      <div id="create-scene-list-unsaved-confirmation" class="scene-editor-confirmation" role="alertdialog" aria-modal="true" aria-labelledby="create-scene-list-unsaved-heading" hidden>
+        <div class="scene-editor-confirmation-dialog">
+          <h3 id="create-scene-list-unsaved-heading">Unsaved changes</h3>
+          <p>Save changes to the loaded scene list before creating a new one?</p>
+          <p id="create-scene-list-unsaved-result" role="status" aria-live="polite"></p>
+          <div class="scene-editor-confirmation-actions">
+            <button id="cancel-create-scene-list-unsaved" type="button">Cancel</button>
+            <button id="discard-create-scene-list-unsaved" type="button">Discard and Continue</button>
+            <button id="save-create-scene-list-unsaved" type="button">Save and Continue</button>
           </div>
         </div>
       </div>

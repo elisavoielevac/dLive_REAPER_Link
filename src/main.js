@@ -149,11 +149,26 @@ window.addEventListener("DOMContentLoaded", () => {
   const discardSceneEditorConfirmation = document.querySelector(
     "#discard-scene-editor-confirmation",
   );
+  const createSceneListUnsavedConfirmation = document.querySelector(
+    "#create-scene-list-unsaved-confirmation",
+  );
+  const createSceneListUnsavedResult = document.querySelector(
+    "#create-scene-list-unsaved-result",
+  );
   const keepEditingSceneNamesButton = document.querySelector(
     "#keep-editing-scene-names",
   );
   const discardSceneNameChangesButton = document.querySelector(
     "#discard-scene-name-changes",
+  );
+  const cancelCreateSceneListUnsavedButton = document.querySelector(
+    "#cancel-create-scene-list-unsaved",
+  );
+  const discardCreateSceneListUnsavedButton = document.querySelector(
+    "#discard-create-scene-list-unsaved",
+  );
+  const saveCreateSceneListUnsavedButton = document.querySelector(
+    "#save-create-scene-list-unsaved",
   );
   const sceneEditorFilePath = document.querySelector("#scene-editor-file-path");
   const sceneEditorHeading = document.querySelector("#scene-editor-heading");
@@ -188,7 +203,7 @@ window.addEventListener("DOMContentLoaded", () => {
   const markerDecision = document.querySelector("#marker-decision");
   const midiLog = document.querySelector("#midi-log");
   let dLiveLinkRunning = false;
-  let markerMode = "always";
+  let markerMode = "recording_only";
   let savedReaperOscTarget;
   let sceneNamesCount;
   let loadedSceneListName;
@@ -197,6 +212,7 @@ window.addEventListener("DOMContentLoaded", () => {
   let pendingSceneListImportPath;
   let pendingSceneListBackupName;
   let pendingSceneListNameAction;
+  let pendingCreateSceneListName;
   let unlistenMidiMessages;
 
   function updateReadiness() {
@@ -488,6 +504,42 @@ window.addEventListener("DOMContentLoaded", () => {
     sceneListNamePromptResult.textContent = "";
   }
 
+  function openCreateSceneListUnsavedConfirmation(name) {
+    pendingCreateSceneListName = name;
+    createSceneListUnsavedResult.textContent = "";
+    createSceneListUnsavedConfirmation.hidden = false;
+    discardCreateSceneListUnsavedButton.focus();
+  }
+
+  function closeCreateSceneListUnsavedConfirmation() {
+    createSceneListUnsavedConfirmation.hidden = true;
+    createSceneListUnsavedResult.textContent = "";
+    pendingCreateSceneListName = undefined;
+  }
+
+  async function saveLoadedSceneListEdits(result) {
+    const names = Array.from(sceneEditor.querySelectorAll("input"), (input) =>
+      input.value,
+    );
+
+    if (names.length !== 500) {
+      result.textContent = "Could not save scene list: 500 scene slots are required";
+      return false;
+    }
+
+    result.textContent = "Saving scene list...";
+    try {
+      sceneNamesCount = await invoke("save_scene_names", { names });
+      updateReadiness();
+      sceneEditorDirty = false;
+      result.textContent = "Scene list saved and reloaded";
+      return true;
+    } catch (error) {
+      result.textContent = `Could not save scene list: ${error}`;
+      return false;
+    }
+  }
+
   async function exportSceneList() {
     exportSceneListButton.disabled = true;
     sceneListTransferResult.textContent = "Choose export location...";
@@ -681,6 +733,23 @@ window.addEventListener("DOMContentLoaded", () => {
     }
   }
 
+  async function createPendingSceneListAfterUnsavedChoice() {
+    if (!pendingCreateSceneListName) {
+      return false;
+    }
+
+    const created = await createSceneList(
+      pendingCreateSceneListName,
+      createSceneListUnsavedResult,
+    );
+    if (created) {
+      sceneListBackupResult.textContent =
+        `Scene list created and loaded: ${loadedSceneListName}`;
+      closeCreateSceneListUnsavedConfirmation();
+    }
+    return created;
+  }
+
   function closeSceneListBackupRestoreConfirmation() {
     restoreSceneListBackupConfirmation.hidden = true;
     document.body.classList.remove("scene-list-backup-restore-open");
@@ -738,13 +807,14 @@ window.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  async function refreshMidiInputs() {
+  async function refreshMidiInputs({ autoStartSaved = false } = {}) {
     midiButton.disabled = true;
     midiResult.textContent = "Refreshing MIDI inputs...";
 
     try {
       const inputs = await invoke("list_midi_inputs");
       const savedInput = await invoke("get_saved_midi_input");
+      let restoredSavedInput = false;
       const prompt = document.createElement("option");
       prompt.value = "";
       prompt.textContent = inputs.length
@@ -763,6 +833,7 @@ window.addEventListener("DOMContentLoaded", () => {
 
       if (savedInput && inputs.includes(savedInput)) {
         midiInputSelect.value = savedInput;
+        restoredSavedInput = true;
         midiResult.textContent = `Saved MIDI input restored: ${savedInput}`;
       } else if (savedInput) {
         midiResult.textContent = "Saved MIDI input not found";
@@ -774,6 +845,10 @@ window.addEventListener("DOMContentLoaded", () => {
 
       updateMidiListenerToggle();
       updateReadiness();
+
+      if (autoStartSaved && restoredSavedInput) {
+        await startMidiListener();
+      }
     } catch (error) {
       midiResult.textContent = `Could not refresh MIDI inputs: ${error}`;
     } finally {
@@ -781,7 +856,7 @@ window.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  void refreshMidiInputs();
+  void refreshMidiInputs({ autoStartSaved: true });
 
   revealSceneFileButton.addEventListener("click", async () => {
     revealSceneFileButton.disabled = true;
@@ -817,26 +892,10 @@ window.addEventListener("DOMContentLoaded", () => {
   });
 
   saveSceneNamesButton.addEventListener("click", async () => {
-    const names = Array.from(sceneEditor.querySelectorAll("input"), (input) =>
-      input.value,
-    );
-
-    if (names.length !== 500) {
-      sceneEditorResult.textContent = "Could not save scene list: 500 scene slots are required";
-      return;
-    }
-
     saveSceneNamesButton.disabled = true;
     closeSceneEditorButton.disabled = true;
-    sceneEditorResult.textContent = "Saving scene list...";
-
     try {
-      sceneNamesCount = await invoke("save_scene_names", { names });
-      updateReadiness();
-      sceneEditorDirty = false;
-      sceneEditorResult.textContent = "Scene list saved and reloaded";
-    } catch (error) {
-      sceneEditorResult.textContent = `Could not save scene list: ${error}`;
+      await saveLoadedSceneListEdits(sceneEditorResult);
     } finally {
       saveSceneNamesButton.disabled = false;
       closeSceneEditorButton.disabled = false;
@@ -952,10 +1011,16 @@ window.addEventListener("DOMContentLoaded", () => {
     try {
       let completed = false;
       if (pendingSceneListNameAction === "create") {
-        completed = await createSceneList(name, sceneListNamePromptResult);
-        if (completed) {
-          sceneListBackupResult.textContent =
-            `Scene list created and loaded: ${loadedSceneListName}`;
+        if (!sceneEditorPanel.hidden && sceneEditorDirty) {
+          closeSceneListNamePrompt();
+          openCreateSceneListUnsavedConfirmation(name);
+          return;
+        } else {
+          completed = await createSceneList(name, sceneListNamePromptResult);
+          if (completed) {
+            sceneListBackupResult.textContent =
+              `Scene list created and loaded: ${loadedSceneListName}`;
+          }
         }
       } else if (pendingSceneListNameAction === "save_as") {
         completed = await saveSceneListBackup(name);
@@ -1011,11 +1076,47 @@ window.addEventListener("DOMContentLoaded", () => {
 
   discardSceneNameChangesButton.addEventListener("click", closeSceneEditorNow);
 
+  cancelCreateSceneListUnsavedButton.addEventListener("click", () => {
+    closeCreateSceneListUnsavedConfirmation();
+    sceneListBackupResult.textContent = "Create new cancelled";
+  });
+
+  discardCreateSceneListUnsavedButton.addEventListener("click", async () => {
+    discardCreateSceneListUnsavedButton.disabled = true;
+    saveCreateSceneListUnsavedButton.disabled = true;
+    cancelCreateSceneListUnsavedButton.disabled = true;
+    try {
+      await createPendingSceneListAfterUnsavedChoice();
+    } finally {
+      discardCreateSceneListUnsavedButton.disabled = false;
+      saveCreateSceneListUnsavedButton.disabled = false;
+      cancelCreateSceneListUnsavedButton.disabled = false;
+    }
+  });
+
+  saveCreateSceneListUnsavedButton.addEventListener("click", async () => {
+    discardCreateSceneListUnsavedButton.disabled = true;
+    saveCreateSceneListUnsavedButton.disabled = true;
+    cancelCreateSceneListUnsavedButton.disabled = true;
+    try {
+      const saved = await saveLoadedSceneListEdits(sceneEditorResult);
+      if (saved) {
+        await createPendingSceneListAfterUnsavedChoice();
+      }
+    } finally {
+      discardCreateSceneListUnsavedButton.disabled = false;
+      saveCreateSceneListUnsavedButton.disabled = false;
+      cancelCreateSceneListUnsavedButton.disabled = false;
+    }
+  });
+
   sceneEditor.addEventListener("input", () => {
     sceneEditorDirty = true;
   });
 
-  midiButton.addEventListener("click", refreshMidiInputs);
+  midiButton.addEventListener("click", () => {
+    void refreshMidiInputs();
+  });
 
   midiInputSelect.addEventListener("change", async () => {
     const portName = midiInputSelect.value;

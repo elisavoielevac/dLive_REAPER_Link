@@ -105,7 +105,7 @@ impl MarkerModeSettings {
         let mode = fs::read_to_string(&path)
             .ok()
             .and_then(|value| MarkerMode::from_str(&value))
-            .unwrap_or(MarkerMode::Always);
+            .unwrap_or(MarkerMode::RecordingOnly);
         Ok(Self {
             mode: Arc::new(RwLock::new(mode)),
             path,
