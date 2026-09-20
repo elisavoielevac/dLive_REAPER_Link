@@ -102,8 +102,7 @@ body {
 }
 
 .app-section + .app-section,
-.readiness-summary + .live-controls,
-.live-status + .app-section {
+.readiness-summary + .live-controls {
   margin-top: var(--space-4);
 }
 
@@ -123,6 +122,28 @@ body {
   color: var(--color-muted);
   background: var(--color-bg-elevated);
   font-size: 0.875rem;
+}
+
+.live-scene-summary {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.live-scene-status {
+  display: block;
+  margin-top: 0;
+}
+
+.live-scene-status p {
+  min-height: 3.75rem;
+  display: flex;
+  align-items: center;
+  border-color: rgb(56 189 248 / 0.35);
+  padding: var(--space-3) var(--space-4);
+  color: var(--color-text);
+  background: var(--color-bg-elevated);
+  font-size: 1.15rem;
+  font-weight: 700;
 }
 
 h1 {
@@ -222,7 +243,7 @@ button:disabled {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-4);
-  width: min(100%, 30rem);
+  width: min(100%, 32rem);
   padding: var(--space-4) 0;
 }
 
@@ -278,10 +299,6 @@ button:disabled {
   color: rgb(255 255 255 / 0.78);
 }
 
-.live-status {
-  padding-bottom: var(--space-1);
-}
-
 .reaper-osc-settings label,
 .reaper-osc-settings input,
 .reaper-osc-settings button {
@@ -293,6 +310,24 @@ button:disabled {
   color: var(--color-subtle);
   font-size: 0.875rem;
   line-height: 1.5;
+}
+
+.diagnostics-status {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
+.diagnostics-status p {
+  min-height: 2.25rem;
+  margin: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-2) var(--space-3);
+  color: var(--color-muted);
+  background: var(--color-bg-elevated);
+  font-size: 0.875rem;
 }
 
 .scene-file-actions {

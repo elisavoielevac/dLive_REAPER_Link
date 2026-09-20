@@ -206,12 +206,11 @@ window.addEventListener("DOMContentLoaded", () => {
       ? `REAPER OSC: Configured (${savedReaperOscTarget.host}:${savedReaperOscTarget.port})`
       : "REAPER OSC: Check settings";
     readinessSceneNames.textContent = loadedSceneListName
-      ? "Loaded Scene List: " +
-        loadedSceneListName +
+      ? loadedSceneListName +
         (Number.isInteger(sceneNamesCount)
           ? " (" + sceneNamesCount + " scenes)"
           : "")
-      : "Loaded Scene List: No scene list loaded";
+      : "No scene list loaded";
   }
 
   function updateMidiListenerToggle() {
