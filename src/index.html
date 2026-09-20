@@ -155,7 +155,7 @@
     <div id="scene-editor-panel" class="scene-editor-panel" hidden>
       <section class="scene-editor-dialog" role="dialog" aria-modal="true" aria-labelledby="scene-editor-heading">
         <div class="scene-editor-dialog-header">
-          <h2 id="scene-editor-heading">Loaded Scene List Editor</h2>
+          <h2 id="scene-editor-heading">Editing: No scene list loaded</h2>
           <div class="scene-editor-actions">
             <button id="save-scene-names" type="button" disabled>Save</button>
             <input id="scene-editor-save-as-name" type="text" placeholder="New scene list name" autocomplete="off" />
@@ -164,8 +164,8 @@
             <button id="close-scene-editor" type="button">Close</button>
           </div>
         </div>
-        <p id="scene-editor-file-path" class="scene-editor-file-path"></p>
-        <p id="scene-editor-file-location" class="scene-editor-file-path"></p>
+        <p id="scene-editor-file-path" class="scene-editor-file-path" hidden></p>
+        <p id="scene-editor-file-location" class="scene-editor-file-path" hidden></p>
         <p class="scene-editor-note">Scene number = line number. Empty names are allowed.</p>
         <div id="scene-editor" class="scene-editor" aria-label="Scene name editor"></div>
         <p id="scene-editor-result" role="status" aria-live="polite"></p>
@@ -197,12 +197,12 @@
 
     <div id="import-scene-list-confirmation" class="scene-list-confirmation" role="alertdialog" aria-modal="true" aria-labelledby="import-scene-list-heading" hidden>
       <div class="scene-list-confirmation-dialog">
-        <h2 id="import-scene-list-heading">Import and replace loaded scene list?</h2>
+        <h2 id="import-scene-list-heading">Import scene list?</h2>
         <p id="import-scene-list-path"></p>
         <p>This replaces the loaded scene list used for marker names. The imported names will be used immediately.</p>
         <div class="scene-list-confirmation-actions">
           <button id="cancel-scene-list-import" type="button">Cancel</button>
-          <button id="confirm-scene-list-import" type="button">Import and Replace Loaded List</button>
+          <button id="confirm-scene-list-import" type="button">Import</button>
         </div>
       </div>
     </div>

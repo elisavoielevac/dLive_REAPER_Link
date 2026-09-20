@@ -156,6 +156,7 @@ window.addEventListener("DOMContentLoaded", () => {
     "#discard-scene-name-changes",
   );
   const sceneEditorFilePath = document.querySelector("#scene-editor-file-path");
+  const sceneEditorHeading = document.querySelector("#scene-editor-heading");
   const sceneEditorFileLocation = document.querySelector(
     "#scene-editor-file-location",
   );
@@ -243,8 +244,9 @@ window.addEventListener("DOMContentLoaded", () => {
     sceneFilePath.textContent =
       "Loaded Scene List: " +
       loadedSceneListLabel;
+    sceneEditorHeading.textContent = "Editing: " + loadedSceneListLabel;
     sceneEditorFilePath.textContent =
-      "Editing loaded scene list: " + loadedSceneListLabel;
+      loadedSceneListName ? "Loaded Scene List" : "No scene list loaded";
     sceneFileLocation.textContent = sceneListFilePath
       ? "File location: " + sceneListFilePath
       : "";
