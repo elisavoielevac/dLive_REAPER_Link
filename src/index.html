@@ -243,17 +243,12 @@
     </div>
 
     <div id="manage-scene-lists-dialog" class="scene-list-confirmation" role="dialog" aria-modal="true" aria-labelledby="manage-scene-lists-heading" hidden>
-      <div class="scene-list-confirmation-dialog">
+      <div class="scene-list-confirmation-dialog manage-scene-lists-dialog">
         <h2 id="manage-scene-lists-heading">Manage Lists</h2>
-        <label for="manage-scene-lists-select">Scene List</label>
-        <select id="manage-scene-lists-select" disabled>
-          <option value="">No saved lists</option>
-        </select>
+        <ul id="manage-scene-lists-list" class="manage-scene-lists-list" tabindex="-1"></ul>
         <p id="manage-scene-lists-result" role="status" aria-live="polite"></p>
         <div class="scene-list-confirmation-actions">
           <button id="close-manage-scene-lists" type="button">Close</button>
-          <button id="rename-scene-list" type="button" disabled>Rename</button>
-          <button id="delete-scene-list" type="button" disabled>Delete</button>
         </div>
       </div>
     </div>
