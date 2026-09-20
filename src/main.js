@@ -227,8 +227,7 @@ window.addEventListener("DOMContentLoaded", () => {
     const loadedSceneListLabel = loadedSceneListName || "No scene list loaded";
     sceneFilePath.textContent =
       "Loaded Scene List: " +
-      loadedSceneListLabel +
-      (loadedSceneListName ? " (marker names source)" : "");
+      loadedSceneListLabel;
     sceneEditorFilePath.textContent =
       "Editing loaded scene list: " + loadedSceneListLabel;
     sceneFileLocation.textContent = sceneListFilePath
@@ -453,7 +452,7 @@ window.addEventListener("DOMContentLoaded", () => {
 
   async function exportSceneList() {
     exportSceneListButton.disabled = true;
-    sceneListTransferResult.textContent = "Choose where to save a copy of the loaded scene list...";
+    sceneListTransferResult.textContent = "Choose export location...";
 
     try {
       const destinationPath = await saveFileDialog({
@@ -484,7 +483,7 @@ window.addEventListener("DOMContentLoaded", () => {
       return;
     }
     importSceneListButton.disabled = true;
-    sceneListTransferResult.textContent = "Choose an external scene list to add to the app...";
+    sceneListTransferResult.textContent = "Choose a .txt file to import...";
 
     try {
       const sourcePath = await openFileDialog({
@@ -729,7 +728,7 @@ window.addEventListener("DOMContentLoaded", () => {
         midiResult.textContent = "Saved MIDI input not found";
       } else {
         midiResult.textContent = inputs.length
-          ? "Choose your Allen & Heath MIDI TCP input, then start listening."
+          ? "Choose a MIDI input."
           : "No MIDI inputs available";
       }
 
