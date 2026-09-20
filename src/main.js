@@ -275,6 +275,9 @@ window.addEventListener("DOMContentLoaded", () => {
       ? "File location: " + sceneListFilePath
       : "";
     openSceneEditorButton.disabled = !loadedSceneListName;
+    reloadSceneNamesButton.disabled = !loadedSceneListName;
+    saveSceneListBackupButton.disabled = !loadedSceneListName;
+    exportSceneListButton.disabled = !loadedSceneListName;
   }
 
   updateReadiness();
@@ -544,12 +547,17 @@ window.addEventListener("DOMContentLoaded", () => {
   }
 
   async function exportSceneList() {
+    if (!loadedSceneListName) {
+      sceneListTransferResult.textContent = "Load a scene list before exporting";
+      return;
+    }
+
     exportSceneListButton.disabled = true;
-    sceneListTransferResult.textContent = "Choose export location...";
+    sceneListTransferResult.textContent = "Choose a .drlscene export location...";
 
     try {
       const destinationPath = await saveFileDialog({
-        title: "Export Scene List",
+        title: "Export .drlscene Scene List",
         defaultPath: "dLive_REAPER_Link_scene_list.drlscene",
         filters: [
           {
@@ -565,7 +573,8 @@ window.addEventListener("DOMContentLoaded", () => {
       }
 
       await invoke("export_scene_list", { destinationPath });
-      sceneListTransferResult.textContent = "Scene list exported; loaded scene list unchanged";
+      sceneListTransferResult.textContent =
+        "Scene list exported as .drlscene; loaded scene list unchanged";
     } catch (error) {
       sceneListTransferResult.textContent = `Could not export a copy of the loaded scene list: ${error}`;
     } finally {
@@ -581,11 +590,12 @@ window.addEventListener("DOMContentLoaded", () => {
       return;
     }
     importSceneListButton.disabled = true;
-    sceneListTransferResult.textContent = "Choose a scene list to import...";
+    sceneListTransferResult.textContent =
+      "Choose a .drlscene or .txt list to import...";
 
     try {
       const sourcePath = await openFileDialog({
-        title: "Import Scene List",
+        title: "Import .drlscene or .txt Scene List",
         multiple: false,
         directory: false,
         filters: [
@@ -602,7 +612,7 @@ window.addEventListener("DOMContentLoaded", () => {
       }
 
       pendingSceneListImportPath = sourcePath;
-      importSceneListPath.textContent = `External file: ${sourcePath}`;
+      importSceneListPath.textContent = `External scene list: ${sourcePath}`;
       importSceneListConfirmation.hidden = false;
       document.body.classList.add("scene-list-import-open");
       confirmSceneListImportButton.focus();
@@ -767,6 +777,11 @@ window.addEventListener("DOMContentLoaded", () => {
   }
 
   async function saveSceneListBackup(name) {
+    if (!loadedSceneListName) {
+      sceneListBackupResult.textContent = "Load a scene list before saving as a new list";
+      return false;
+    }
+
     if (!sceneEditorPanel.hidden && sceneEditorDirty) {
       sceneEditorResult.textContent =
         "Save or discard your scene list edits before saving another list";
@@ -969,6 +984,11 @@ window.addEventListener("DOMContentLoaded", () => {
   });
 
   reloadSceneNamesButton.addEventListener("click", async () => {
+    if (!loadedSceneListName) {
+      sceneFileReloadResult.textContent = "Load a scene list before reloading";
+      return;
+    }
+
     reloadSceneNamesButton.disabled = true;
     sceneFileReloadResult.textContent = "Reloading scene list...";
 
@@ -1025,6 +1045,10 @@ window.addEventListener("DOMContentLoaded", () => {
   });
 
   saveSceneListBackupButton.addEventListener("click", () => {
+    if (!loadedSceneListName) {
+      sceneListBackupResult.textContent = "Load a scene list before saving as a new list";
+      return;
+    }
     openSceneListNamePrompt("save_as");
   });
 
