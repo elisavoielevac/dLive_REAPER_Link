@@ -92,7 +92,6 @@ window.addEventListener("DOMContentLoaded", () => {
   const sceneListTransferResult = document.querySelector(
     "#scene-list-transfer-result",
   );
-  const sceneBackupName = document.querySelector("#scene-backup-name");
   const createSceneListButton = document.querySelector("#create-scene-list");
   const saveSceneListBackupButton = document.querySelector(
     "#save-scene-list-backup",
@@ -106,6 +105,22 @@ window.addEventListener("DOMContentLoaded", () => {
   );
   const sceneListBackupResult = document.querySelector(
     "#scene-list-backup-result",
+  );
+  const sceneListNamePrompt = document.querySelector("#scene-list-name-prompt");
+  const sceneListNamePromptHeading = document.querySelector(
+    "#scene-list-name-prompt-heading",
+  );
+  const sceneListNamePromptInput = document.querySelector(
+    "#scene-list-name-prompt-input",
+  );
+  const sceneListNamePromptResult = document.querySelector(
+    "#scene-list-name-prompt-result",
+  );
+  const cancelSceneListNamePromptButton = document.querySelector(
+    "#cancel-scene-list-name-prompt",
+  );
+  const confirmSceneListNamePromptButton = document.querySelector(
+    "#confirm-scene-list-name-prompt",
   );
   const importSceneListConfirmation = document.querySelector(
     "#import-scene-list-confirmation",
@@ -180,6 +195,7 @@ window.addEventListener("DOMContentLoaded", () => {
   let sceneEditorDirty = false;
   let pendingSceneListImportPath;
   let pendingSceneListBackupName;
+  let pendingSceneListNameAction;
   let unlistenMidiMessages;
 
   function updateReadiness() {
@@ -450,6 +466,27 @@ window.addEventListener("DOMContentLoaded", () => {
     pendingSceneListImportPath = undefined;
   }
 
+  function openSceneListNamePrompt(action) {
+    pendingSceneListNameAction = action;
+    sceneListNamePromptHeading.textContent =
+      action === "create" ? "Create New" : "Save As";
+    confirmSceneListNamePromptButton.textContent =
+      action === "create" ? "Create New" : "Save As";
+    sceneListNamePromptInput.value = "";
+    sceneListNamePromptResult.textContent = "";
+    sceneListNamePrompt.hidden = false;
+    document.body.classList.add("scene-list-name-prompt-open");
+    sceneListNamePromptInput.focus();
+  }
+
+  function closeSceneListNamePrompt() {
+    sceneListNamePrompt.hidden = true;
+    document.body.classList.remove("scene-list-name-prompt-open");
+    pendingSceneListNameAction = undefined;
+    sceneListNamePromptInput.value = "";
+    sceneListNamePromptResult.textContent = "";
+  }
+
   async function exportSceneList() {
     exportSceneListButton.disabled = true;
     sceneListTransferResult.textContent = "Choose export location...";
@@ -581,31 +618,33 @@ window.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  async function saveSceneListBackup() {
+  async function saveSceneListBackup(name) {
     if (!sceneEditorPanel.hidden && sceneEditorDirty) {
       sceneEditorResult.textContent =
         "Save or discard your scene list edits before saving another list";
       discardSceneEditorConfirmation.hidden = false;
-      return;
+      return false;
     }
     saveSceneListBackupButton.disabled = true;
     sceneListBackupResult.textContent = "Saving scene list...";
 
     try {
       const backupName = await invoke("save_scene_list_as", {
-        name: sceneBackupName.value,
+        name,
       });
       loadedSceneListName = backupName;
       sceneNamesCount = await invoke("get_scene_names_count");
-      sceneBackupName.value = "";
       updateSceneListDisplay();
       updateReadiness();
       await refreshSceneListBackups(false);
       sceneListBackups.value = backupName;
       restoreSceneListBackupButton.disabled = false;
       sceneListBackupResult.textContent = `Scene list saved and loaded: ${backupName}`;
+      return true;
     } catch (error) {
       sceneListBackupResult.textContent = `Could not save scene list: ${error}`;
+      sceneListNamePromptResult.textContent = `Could not save: ${error}`;
+      return false;
     } finally {
       saveSceneListBackupButton.disabled = false;
     }
@@ -846,15 +885,7 @@ window.addEventListener("DOMContentLoaded", () => {
   });
 
   createSceneListButton.addEventListener("click", async () => {
-    createSceneListButton.disabled = true;
-    const created = await createSceneList(
-      sceneBackupName.value.trim(),
-      sceneListBackupResult,
-    );
-    if (created) {
-      sceneBackupName.value = "";
-    }
-    createSceneListButton.disabled = false;
+    openSceneListNamePrompt("create");
   });
 
   createSceneListFromEditorButton.addEventListener("click", async () => {
@@ -899,7 +930,49 @@ window.addEventListener("DOMContentLoaded", () => {
   });
 
   saveSceneListBackupButton.addEventListener("click", () => {
-    void saveSceneListBackup();
+    openSceneListNamePrompt("save_as");
+  });
+
+  cancelSceneListNamePromptButton.addEventListener("click", () => {
+    closeSceneListNamePrompt();
+    sceneListBackupResult.textContent = "Name cancelled";
+  });
+
+  confirmSceneListNamePromptButton.addEventListener("click", async () => {
+    const name = sceneListNamePromptInput.value.trim();
+    if (!name) {
+      sceneListNamePromptResult.textContent = "Enter a name";
+      return;
+    }
+
+    confirmSceneListNamePromptButton.disabled = true;
+    cancelSceneListNamePromptButton.disabled = true;
+
+    try {
+      let completed = false;
+      if (pendingSceneListNameAction === "create") {
+        completed = await createSceneList(name, sceneListNamePromptResult);
+      } else if (pendingSceneListNameAction === "save_as") {
+        completed = await saveSceneListBackup(name);
+      }
+
+      if (completed) {
+        closeSceneListNamePrompt();
+      }
+    } finally {
+      confirmSceneListNamePromptButton.disabled = false;
+      cancelSceneListNamePromptButton.disabled = false;
+    }
+  });
+
+  sceneListNamePromptInput.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      confirmSceneListNamePromptButton.click();
+    } else if (event.key === "Escape") {
+      closeSceneListNamePrompt();
+      sceneListBackupResult.textContent = "Name cancelled";
+    }
   });
 
   refreshSceneListBackupsButton.addEventListener("click", () => {

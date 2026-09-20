@@ -84,75 +84,36 @@
         <section class="app-section" aria-labelledby="scene-names-heading">
           <h2 id="scene-names-heading">Scene Lists</h2>
 
-          <div class="scene-list-workflow">
-            <section class="scene-list-group" aria-labelledby="current-scene-list-heading">
-              <div class="scene-list-group-header">
-                <h3 id="current-scene-list-heading">Current / Loaded Scene List</h3>
-              </div>
-              <p id="scene-file-path" class="scene-list-current" role="status" aria-live="polite"></p>
-              <div class="scene-file-actions">
-                <button id="reload-scene-names" type="button">Reload</button>
-                <button id="reveal-scene-file" type="button">Reveal File Location</button>
-              </div>
-              <p id="scene-file-location" class="scene-file-location" role="status" aria-live="polite"></p>
-              <p id="scene-file-reveal-result" role="status" aria-live="polite"></p>
-              <p id="scene-file-reload-result" role="status" aria-live="polite"></p>
-            </section>
+          <div class="scene-list-panel">
+            <div class="scene-list-picker">
+              <label for="scene-list-backups">Scene List</label>
+              <select id="scene-list-backups" disabled>
+                <option value="">No saved lists</option>
+              </select>
+              <button id="restore-scene-list-backup" type="button" disabled>Load</button>
+              <button id="refresh-scene-list-backups" type="button">Refresh</button>
+            </div>
 
-            <section class="scene-list-group" aria-labelledby="create-scene-list-heading">
-              <div class="scene-list-group-header">
-                <h3 id="create-scene-list-heading">Create New</h3>
-              </div>
-              <div class="scene-backup-actions">
-                <label for="scene-backup-name">Name for Create New or Save As</label>
-                <input id="scene-backup-name" type="text" placeholder="Name this list" autocomplete="off" />
-                <button id="create-scene-list" type="button">Create New</button>
-              </div>
-            </section>
+            <p id="scene-file-path" class="scene-list-current" role="status" aria-live="polite"></p>
+            <p id="scene-file-location" class="scene-file-location" role="status" aria-live="polite" hidden></p>
 
-            <section class="scene-list-group" aria-labelledby="load-scene-list-heading">
-              <div class="scene-list-group-header">
-                <h3 id="load-scene-list-heading">Load Existing</h3>
-              </div>
-              <div class="scene-backup-actions">
-                <label for="scene-list-backups">App-managed lists</label>
-                <select id="scene-list-backups" disabled>
-                  <option value="">No saved lists</option>
-                </select>
-                <button id="refresh-scene-list-backups" type="button">Refresh</button>
-                <button id="restore-scene-list-backup" type="button" disabled>Load</button>
-              </div>
-              <p id="scene-list-backup-result" role="status" aria-live="polite"></p>
-            </section>
+            <div class="scene-list-actions">
+              <button id="open-scene-editor" type="button" disabled>Edit</button>
+              <button id="reload-scene-names" type="button">Reload</button>
+              <button id="reveal-scene-file" type="button">Reveal</button>
+            </div>
 
-            <section class="scene-list-group" aria-labelledby="save-scene-list-heading">
-              <div class="scene-list-group-header">
-                <h3 id="save-scene-list-heading">Save As</h3>
-              </div>
-              <div class="scene-backup-actions">
-                <button id="save-scene-list-backup" type="button">Save As</button>
-              </div>
-            </section>
+            <div class="scene-list-actions">
+              <button id="create-scene-list" type="button">Create New</button>
+              <button id="save-scene-list-backup" type="button">Save As</button>
+              <button id="import-scene-list" type="button">Import</button>
+              <button id="export-scene-list" type="button">Export</button>
+            </div>
 
-            <section class="scene-list-group" aria-labelledby="edit-scene-list-heading">
-              <div class="scene-list-group-header">
-                <h3 id="edit-scene-list-heading">Edit</h3>
-              </div>
-              <div class="scene-list-actions">
-                <button id="open-scene-editor" type="button" disabled>Edit</button>
-              </div>
-            </section>
-
-            <section class="scene-list-group" aria-labelledby="import-export-scene-list-heading">
-              <div class="scene-list-group-header">
-                <h3 id="import-export-scene-list-heading">Import / Export</h3>
-              </div>
-              <div class="scene-list-actions">
-                <button id="import-scene-list" type="button">Import</button>
-                <button id="export-scene-list" type="button">Export</button>
-              </div>
-              <p id="scene-list-transfer-result" role="status" aria-live="polite"></p>
-            </section>
+            <p id="scene-list-backup-result" role="status" aria-live="polite"></p>
+            <p id="scene-file-reveal-result" role="status" aria-live="polite"></p>
+            <p id="scene-file-reload-result" role="status" aria-live="polite"></p>
+            <p id="scene-list-transfer-result" role="status" aria-live="polite"></p>
           </div>
         </section>
       </section>
@@ -196,6 +157,19 @@
             <button id="keep-editing-scene-names" type="button">Keep Editing</button>
             <button id="discard-scene-name-changes" type="button">Discard Changes</button>
           </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="scene-list-name-prompt" class="scene-list-confirmation" role="dialog" aria-modal="true" aria-labelledby="scene-list-name-prompt-heading" hidden>
+      <div class="scene-list-confirmation-dialog">
+        <h2 id="scene-list-name-prompt-heading">Name scene list</h2>
+        <label for="scene-list-name-prompt-input">Name</label>
+        <input id="scene-list-name-prompt-input" type="text" autocomplete="off" />
+        <p id="scene-list-name-prompt-result" role="status" aria-live="polite"></p>
+        <div class="scene-list-confirmation-actions">
+          <button id="cancel-scene-list-name-prompt" type="button">Cancel</button>
+          <button id="confirm-scene-list-name-prompt" type="button">Create New</button>
         </div>
       </div>
     </div>

@@ -221,45 +221,21 @@ button:disabled {
   overflow-wrap: anywhere;
 }
 
-.scene-list-workflow {
-  display: grid;
-  gap: 1rem;
-  margin-top: 1rem;
-}
-
-.scene-list-group {
-  border-top: 1px solid #e4e7eb;
-  padding-top: 1rem;
-}
-
-.scene-list-group:first-child {
-  border-top: 0;
-  padding-top: 0;
-}
-
-.scene-list-group-header {
-  display: grid;
-  gap: 0.125rem;
-}
-
-.scene-list-group-header h3 {
-  margin: 0;
-}
-
-.scene-list-group-header p {
-  margin: 0;
-  font-size: 0.875rem;
-  line-height: 1.5;
-}
-
 .scene-list-current {
+  margin-top: 0.75rem;
   font-weight: 600;
   color: inherit;
 }
 
-.scene-list-detail {
-  font-size: 0.875rem;
-  line-height: 1.5;
+.scene-list-panel {
+  margin-top: 0.75rem;
+}
+
+.scene-list-picker {
+  display: grid;
+  grid-template-columns: auto minmax(12rem, 1fr) auto auto;
+  align-items: center;
+  gap: 0.75rem;
 }
 
 .scene-list-actions {
@@ -358,6 +334,13 @@ button:disabled {
   margin-top: 1rem;
 }
 
+.scene-list-confirmation-dialog label,
+.scene-list-confirmation-dialog input {
+  display: block;
+  width: 100%;
+  margin-top: 0.75rem;
+}
+
 .scene-editor-confirmation {
   position: absolute;
   inset: 0;
@@ -433,6 +416,10 @@ body.scene-list-import-open {
 }
 
 body.scene-list-backup-restore-open {
+  overflow: hidden;
+}
+
+body.scene-list-name-prompt-open {
   overflow: hidden;
 }
 
@@ -514,7 +501,6 @@ input {
 
   .app-section,
   .readiness-summary,
-  .scene-list-group,
   select,
   input,
   #midi-log,
@@ -563,6 +549,7 @@ input {
   .control-row,
   .reaper-osc-settings,
   .scene-file-actions,
+  .scene-list-picker,
   .scene-list-actions,
   .scene-backup-actions,
   .scene-editor-dialog-header,
@@ -570,6 +557,10 @@ input {
   .scene-editor-confirmation-actions,
   .scene-list-confirmation-actions {
     align-items: stretch;
+  }
+
+  .scene-list-picker {
+    grid-template-columns: 1fr;
   }
 
   .scene-editor-panel {
