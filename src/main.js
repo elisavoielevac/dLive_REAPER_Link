@@ -279,17 +279,15 @@ window.addEventListener("DOMContentLoaded", () => {
 
   function updateSceneListDisplay() {
     const loadedSceneListLabel = loadedSceneListName || "No scene list loaded";
-    sceneFilePath.textContent =
-      "Loaded Scene List: " +
-      loadedSceneListLabel;
+    sceneFilePath.textContent = loadedSceneListLabel;
     sceneEditorHeading.textContent = "Editing: " + loadedSceneListLabel;
     sceneEditorFilePath.textContent =
       loadedSceneListName ? "Loaded Scene List" : "No scene list loaded";
     sceneFileLocation.textContent = sceneListFilePath
-      ? "File location: " + sceneListFilePath
+      ? "Location: " + sceneListFilePath
       : "";
     sceneEditorFileLocation.textContent = sceneListFilePath
-      ? "File location: " + sceneListFilePath
+      ? "Location: " + sceneListFilePath
       : "";
     openSceneEditorButton.disabled = !loadedSceneListName;
     reloadSceneNamesButton.disabled = !loadedSceneListName;
@@ -509,7 +507,7 @@ window.addEventListener("DOMContentLoaded", () => {
     pendingSceneListNameAction = action;
     pendingSceneListRenameName = action === "rename" ? sceneListName : undefined;
     const label =
-      action === "create" ? "Create New" : action === "save_as" ? "Save As" : "Rename";
+      action === "create" ? "New" : action === "save_as" ? "Save As" : "Rename";
     sceneListNamePromptHeading.textContent = label;
     confirmSceneListNamePromptButton.textContent = label;
     sceneListNamePromptInput.value = sceneListName;
@@ -631,7 +629,7 @@ window.addEventListener("DOMContentLoaded", () => {
       }
 
       pendingSceneListImportPath = sourcePath;
-      importSceneListPath.textContent = `External scene list: ${sourcePath}`;
+      importSceneListPath.textContent = sourcePath;
       importSceneListConfirmation.hidden = false;
       document.body.classList.add("scene-list-import-open");
       confirmSceneListImportButton.focus();
