@@ -584,10 +584,7 @@ button:disabled {
 
 .scene-editor-actions button {
   flex: 0 0 auto;
-}
-
-.scene-editor-actions input {
-  min-width: min(14rem, 100%);
+  min-width: 5.5rem;
 }
 
 .scene-editor-file-path {

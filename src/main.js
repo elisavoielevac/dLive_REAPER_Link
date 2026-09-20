@@ -189,15 +189,6 @@ window.addEventListener("DOMContentLoaded", () => {
   );
   const sceneEditor = document.querySelector("#scene-editor");
   const saveSceneNamesButton = document.querySelector("#save-scene-names");
-  const sceneEditorSaveAsName = document.querySelector(
-    "#scene-editor-save-as-name",
-  );
-  const saveSceneListAsButton = document.querySelector(
-    "#save-scene-list-as",
-  );
-  const createSceneListFromEditorButton = document.querySelector(
-    "#create-scene-list-from-editor",
-  );
   const sceneEditorResult = document.querySelector("#scene-editor-result");
   const midiInputSelect = document.querySelector("#midi-input-select");
   const midiListenerToggleButton = document.querySelector(
@@ -420,8 +411,6 @@ window.addEventListener("DOMContentLoaded", () => {
 
   async function loadSceneEditor() {
     saveSceneNamesButton.disabled = true;
-    saveSceneListAsButton.disabled = true;
-    createSceneListFromEditorButton.disabled = true;
     sceneEditorResult.textContent = "Loading scene list...";
 
     try {
@@ -452,8 +441,6 @@ window.addEventListener("DOMContentLoaded", () => {
       sceneEditorDirty = false;
       sceneEditorResult.textContent = "";
       saveSceneNamesButton.disabled = false;
-      saveSceneListAsButton.disabled = false;
-      createSceneListFromEditorButton.disabled = false;
     } catch (error) {
       sceneEditorResult.textContent = `Could not load scene list: ${error}`;
     }
@@ -477,7 +464,6 @@ window.addEventListener("DOMContentLoaded", () => {
     document.body.classList.remove("scene-editor-open");
     sceneEditor.replaceChildren();
     sceneEditorResult.textContent = "";
-    sceneEditorSaveAsName.value = "";
     sceneEditorDirty = false;
   }
 
@@ -1001,68 +987,8 @@ window.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  saveSceneListAsButton.addEventListener("click", async () => {
-    const name = sceneEditorSaveAsName.value.trim();
-    const names = Array.from(sceneEditor.querySelectorAll("input"), (input) =>
-      input.value,
-    );
-
-    if (!name) {
-      sceneEditorResult.textContent = "Enter a name for the new scene list";
-      return;
-    }
-    if (names.length !== 500) {
-      sceneEditorResult.textContent =
-        "Could not save scene list: 500 scene slots are required";
-      return;
-    }
-
-    saveSceneNamesButton.disabled = true;
-    saveSceneListAsButton.disabled = true;
-    closeSceneEditorButton.disabled = true;
-    sceneEditorResult.textContent = "Saving new scene list...";
-
-    try {
-      const sceneListName = await invoke("save_scene_list_as", { name, names });
-      sceneNamesCount = await invoke("get_scene_names_count");
-      loadedSceneListName = sceneListName;
-      sceneEditorSaveAsName.value = "";
-      sceneEditorDirty = false;
-      updateSceneListDisplay();
-      updateReadiness();
-      await refreshSceneListBackups(false);
-      sceneListBackups.value = sceneListName;
-      updateSelectedSceneListActions();
-      sceneEditorResult.textContent = `Scene list saved and loaded: ${sceneListName}`;
-    } catch (error) {
-      sceneEditorResult.textContent = `Could not save scene list: ${error}`;
-    } finally {
-      saveSceneNamesButton.disabled = false;
-      saveSceneListAsButton.disabled = false;
-      closeSceneEditorButton.disabled = false;
-    }
-  });
-
   createSceneListButton.addEventListener("click", async () => {
     openSceneListNamePrompt("create");
-  });
-
-  createSceneListFromEditorButton.addEventListener("click", async () => {
-    if (sceneEditorDirty) {
-      sceneEditorResult.textContent =
-        "Save or discard your edits before creating a new scene list";
-      return;
-    }
-
-    createSceneListFromEditorButton.disabled = true;
-    const created = await createSceneList(
-      sceneEditorSaveAsName.value.trim(),
-      sceneEditorResult,
-    );
-    if (created) {
-      sceneEditorSaveAsName.value = "";
-    }
-    createSceneListFromEditorButton.disabled = false;
   });
 
   openSceneEditorButton.addEventListener("click", () => {
