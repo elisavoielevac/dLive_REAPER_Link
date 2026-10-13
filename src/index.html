@@ -26,14 +26,21 @@
           </div>
         </section>
         <section class="live-controls" aria-label="Live controls">
-          <button id="toggle-midi-listener" class="live-toggle-button" type="button" disabled>
-            <span class="live-toggle-label">dLive Listener</span>
-            <span id="midi-listener-toggle-state" class="live-toggle-state">Start Listening</span>
-          </button>
-          <button id="toggle-marker-mode" class="live-toggle-button" type="button" disabled>
-            <span class="live-toggle-label">Marker Mode</span>
-            <span id="marker-mode-toggle-state" class="live-toggle-state">Recording Only</span>
-          </button>
+          <div class="live-control-row">
+            <div class="live-control-description">
+              <span class="live-control-label">dLive Listener</span>
+              <span id="midi-listener-status" class="live-control-status" role="status" aria-live="polite">Stopped</span>
+            </div>
+            <button id="toggle-midi-listener" class="live-toggle-button" type="button" disabled>
+              <span id="midi-listener-toggle-state">Start Listening</span>
+            </button>
+          </div>
+          <div class="live-control-row">
+            <span class="live-control-label">Marker mode</span>
+            <button id="toggle-marker-mode" class="live-toggle-button" type="button" disabled>
+              <span id="marker-mode-toggle-state">Recording Only</span>
+            </button>
+          </div>
         </section>
       </section>
 
@@ -150,7 +157,6 @@
         </section>
       </section>
 
-      <footer class="app-footer">v0.2.0-beta.1</footer>
     </main>
 
     <div id="scene-editor-panel" class="scene-editor-panel" hidden>

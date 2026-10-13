@@ -215,6 +215,7 @@ window.addEventListener("DOMContentLoaded", () => {
   const midiListenerToggleState = document.querySelector(
     "#midi-listener-toggle-state",
   );
+  const midiListenerStatus = document.querySelector("#midi-listener-status");
   const midiLogResult = document.querySelector("#midi-log-result");
   const midiSceneResult = document.querySelector("#midi-scene-result");
   const midiSceneNameResult = document.querySelector("#midi-scene-name-result");
@@ -257,6 +258,7 @@ window.addEventListener("DOMContentLoaded", () => {
       ? "Stop Listening"
       : "Start Listening";
     midiListenerToggleState.textContent = state;
+    midiListenerStatus.textContent = dLiveLinkRunning ? "Listening" : "Stopped";
     midiListenerToggleButton.setAttribute(
       "aria-label",
       `dLive Listener: ${state}`,
