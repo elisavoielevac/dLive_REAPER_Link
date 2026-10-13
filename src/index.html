@@ -29,7 +29,10 @@
           <div class="live-control-row">
             <div class="live-control-description">
               <span class="live-control-label">dLive Listener</span>
-              <span id="midi-listener-status" class="live-control-status" role="status" aria-live="polite">Stopped</span>
+              <div class="live-listener-status-row">
+                <span id="midi-listener-status" class="live-control-status" role="status" aria-live="polite">Stopped</span>
+                <button id="refresh-live-midi" type="button" aria-label="Refresh MIDI inputs">Refresh</button>
+              </div>
             </div>
             <button id="toggle-midi-listener" class="live-toggle-button" type="button" disabled>
               <span id="midi-listener-toggle-state">Start Listening</span>
