@@ -10,10 +10,6 @@
 
   <body>
     <main class="container">
-      <header class="app-header">
-        <h1>dLive &rarr; REAPER Link</h1>
-      </header>
-
       <nav class="app-tabs" aria-label="App views" role="tablist">
         <button id="tab-live" type="button" role="tab" aria-selected="true" aria-controls="view-live">Live</button>
         <button id="tab-scene-lists" type="button" role="tab" aria-selected="false" aria-controls="view-scene-lists">Scene Lists</button>
@@ -23,9 +19,10 @@
 
       <section id="view-live" class="app-view" role="tabpanel" aria-labelledby="tab-live">
         <section class="readiness-summary live-scene-summary" aria-labelledby="readiness-heading">
-          <h2 id="readiness-heading">Loaded Scene List</h2>
+          <h2 id="readiness-heading">Scene list</h2>
           <div class="readiness-items live-scene-status" role="status" aria-live="polite">
             <p id="readiness-scene-names">No scene list loaded</p>
+            <p id="readiness-scene-count" class="live-scene-count"></p>
           </div>
         </section>
         <section class="live-controls" aria-label="Live controls">
@@ -141,6 +138,11 @@
             </div>
           </section>
 
+          <section class="diagnostics-group" aria-labelledby="build-heading">
+            <h3 id="build-heading">Build</h3>
+            <p>dLive REAPER Link · v0.2.0-beta.1 · Tour test build</p>
+          </section>
+
           <section class="diagnostics-group" aria-labelledby="raw-log-heading">
             <h3 id="raw-log-heading">Raw Log</h3>
             <pre id="midi-log" aria-live="polite" aria-labelledby="raw-log-heading"></pre>
@@ -148,7 +150,7 @@
         </section>
       </section>
 
-      <footer class="app-footer">dLive REAPER Link &middot; v0.2.0-beta.1 &middot; Tour test build</footer>
+      <footer class="app-footer">v0.2.0-beta.1</footer>
     </main>
 
     <div id="scene-editor-panel" class="scene-editor-panel" hidden>

@@ -74,6 +74,7 @@ window.addEventListener("DOMContentLoaded", () => {
   const readinessMidiInput = document.querySelector("#readiness-midi-input");
   const readinessReaperOsc = document.querySelector("#readiness-reaper-osc");
   const readinessSceneNames = document.querySelector("#readiness-scene-names");
+  const readinessSceneCount = document.querySelector("#readiness-scene-count");
   const midiButton = document.querySelector("#list-midi-inputs");
   const midiResult = document.querySelector("#midi-inputs-result");
   const sceneFilePath = document.querySelector("#scene-file-path");
@@ -244,12 +245,11 @@ window.addEventListener("DOMContentLoaded", () => {
     readinessReaperOsc.textContent = savedReaperOscTarget
       ? `REAPER OSC: Configured (${savedReaperOscTarget.host}:${savedReaperOscTarget.port})`
       : "REAPER OSC: Check settings";
-    readinessSceneNames.textContent = loadedSceneListName
-      ? loadedSceneListName +
-        (Number.isInteger(sceneNamesCount)
-          ? " (" + sceneNamesCount + " scenes)"
-          : "")
-      : "No scene list loaded";
+    readinessSceneNames.textContent = loadedSceneListName || "No scene list loaded";
+    readinessSceneCount.textContent =
+      loadedSceneListName && Number.isInteger(sceneNamesCount)
+        ? `${sceneNamesCount} scenes`
+        : "";
   }
 
   function updateMidiListenerToggle() {
