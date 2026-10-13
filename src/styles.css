@@ -293,6 +293,10 @@ p[role="status"]:empty {
   margin-top: var(--space-2);
 }
 
+.setup-row[hidden] {
+  display: none;
+}
+
 .setup-row-osc {
   grid-template-columns: auto minmax(9rem, 1fr) auto minmax(6rem, 8rem) auto auto;
 }

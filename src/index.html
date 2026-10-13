@@ -31,7 +31,7 @@
               <span class="live-control-label">dLive Listener</span>
               <div class="live-listener-status-row">
                 <span id="midi-listener-status" class="live-control-status" role="status" aria-live="polite">Stopped</span>
-                <button id="refresh-live-midi" type="button" aria-label="Refresh MIDI inputs">Refresh</button>
+                <button id="refresh-live-midi" type="button" aria-label="Refresh connection status">Refresh</button>
               </div>
             </div>
             <button id="toggle-midi-listener" class="live-toggle-button" type="button" disabled>
@@ -49,14 +49,26 @@
 
       <section id="view-setup" class="app-view" role="tabpanel" aria-labelledby="tab-setup" hidden>
         <section class="app-section setup-section" aria-labelledby="midi-link-heading">
-          <h2 id="midi-link-heading">MIDI</h2>
+          <h2 id="midi-link-heading">dLive scene source</h2>
           <div class="setup-row">
+            <label for="bridge-transport">Source</label>
+            <select id="bridge-transport"><option value="midi">MIDI input</option><option value="tcp">Direct MixRack TCP</option></select>
+          </div>
+          <div id="bridge-tcp-settings" hidden>
+            <div class="setup-row"><label for="bridge-host">MixRack IP</label><input id="bridge-host" type="text" placeholder="192.168.1.70" autocomplete="off" spellcheck="false" /></div>
+            <div class="setup-row"><label for="bridge-port">TCP port</label><input id="bridge-port" type="number" min="1" max="65535" value="51325" /></div>
+            <p class="reaper-osc-note">Plain TCP. Enable outgoing MIDI on the desk. MixRack scenes only.</p>
+          </div>
+          <div id="bridge-midi-settings" class="setup-row">
             <label for="midi-input-select">Input</label>
             <select id="midi-input-select" disabled>
               <option value="">List MIDI inputs first</option>
             </select>
             <button id="list-midi-inputs" type="button">Refresh</button>
           </div>
+          <div class="setup-row"><label for="bridge-channel">Desk MIDI channel</label><input id="bridge-channel" type="number" min="1" max="12" value="12" /></div>
+          <div class="scene-backup-actions"><button id="save-bridge-settings" type="button">Save source</button><button id="reconnect-bridge" type="button">Reconnect</button></div>
+          <p id="bridge-settings-result" role="status" aria-live="polite"></p>
           <p id="midi-inputs-result" role="status" aria-live="polite"></p>
         </section>
         <section class="app-section setup-section" aria-labelledby="reaper-connection-heading">
@@ -131,7 +143,7 @@
           </section>
 
           <section class="diagnostics-group" aria-labelledby="midi-diagnostics-heading">
-            <h3 id="midi-diagnostics-heading">MIDI</h3>
+            <h3 id="midi-diagnostics-heading">Scene source</h3>
             <div class="diagnostics-status">
               <p id="readiness-midi-input">MIDI Input: Not selected</p>
               <p id="midi-log-result" role="status" aria-live="polite"></p>
@@ -150,7 +162,7 @@
 
           <section class="diagnostics-group" aria-labelledby="build-heading">
             <h3 id="build-heading">Build</h3>
-            <p>dLive REAPER Link · v0.2.0-beta.2 · Tour test build</p>
+            <p>dLive REAPER Link · v0.3.0-beta.1 · Hardware test build</p>
           </section>
 
           <section class="diagnostics-group" aria-labelledby="raw-log-heading">

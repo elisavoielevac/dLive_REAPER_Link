@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.3.0-beta.1 — 2026-10-13
+
+- Add direct plain MixRack TCP reception alongside selectable MIDI input fallback.
+- Decode split/coalesced MIDI streams and running status, with configurable desk MIDI channel.
+- Move listening intent, serialized connection ownership, and recovery into Rust.
+- Add TCP keepalive and discard queued recalls from lost or replaced connections.
+- Keep REAPER marker waits separate from connection reading; preserve scene lists and marker modes.
+- Add menu bar status and controls; the open window appears in the Dock and Command-Tab. Closing Preferences hides it and switches to menu-bar-only operation; reopening Preferences restores Dock/Command-Tab access. Quit exits.
+- Migrate saved MIDI input selections and require Save source to apply connection settings.
+
+Validation: eleven Rust tests, including a simulated local TCP desk, and mocked browser controls/layouts passed. Native localhost scene reception, Start/Stop/Refresh, version display, window close survival, keyboard Quit, and the macOS app build also passed. User testing confirmed scene reception with dLive Director and reported the initial window/Command-Tab behavior working. The automated UI tool could not inspect the native tray dropdown. Hardware reception and physical network/MIDI recovery remain unverified. Surface control and TLS are deferred.
+
 ## v0.2.0-beta.2 — 2026-10-13
 
 - Automatically reconnect the selected/saved MIDI input, including when it is missing at startup.

@@ -827,10 +827,13 @@ dependencies = [
 
 [[package]]
 name = "dlive-reaper-link"
-version = "0.2.0-beta.2"
+version = "0.3.0-beta.1"
 dependencies = [
  "midir",
  "rosc",
+ "serde",
+ "serde_json",
+ "socket2",
  "tauri",
  "tauri-build",
  "tauri-plugin-dialog",

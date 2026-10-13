@@ -1,3 +1,4 @@
+mod bridge;
 pub mod reaper_osc;
 
 use std::fs;
@@ -9,38 +10,6 @@ use tauri_plugin_opener::OpenerExt;
 
 const DUPLICATE_SCENE_RECALL_WINDOW: Duration = Duration::from_millis(250);
 const SCENE_SLOT_COUNT: usize = 500;
-const DLIVE_SCENE_RECALL_STATUS: u8 = 0xCB;
-const DLIVE_BANK_SELECT_STATUS: u8 = 0xBB;
-const MIDI_BANK_SELECT_MSB: u8 = 0;
-const MIDI_BANK_SELECT_LSB: u8 = 32;
-
-#[derive(Default)]
-struct BankSelectState {
-    msb: u8,
-    lsb: u8,
-}
-
-impl BankSelectState {
-    fn update(&mut self, controller: u8, value: u8) {
-        match controller {
-            MIDI_BANK_SELECT_MSB => self.msb = value,
-            MIDI_BANK_SELECT_LSB => self.lsb = value,
-            _ => {}
-        }
-    }
-
-    fn d_live_bank(&self) -> (u8, u8) {
-        // dLive uses the Bank Select MSB as its 128-scene bank number.
-        (self.msb, self.lsb)
-    }
-}
-
-#[derive(Default)]
-struct MidiLogState {
-    connection: Mutex<Option<midir::MidiInputConnection<()>>>,
-    recent_scene_recall: Arc<Mutex<Option<(u16, Instant)>>>,
-    bank_select: Arc<Mutex<BankSelectState>>,
-}
 
 struct MidiInputSelection {
     path: PathBuf,
@@ -533,12 +502,12 @@ fn decode_scene_number(bank_number: u8, program: u8) -> Option<u16> {
 fn should_create_marker(
     recent_scene_recall: &Mutex<Option<(u16, Instant)>>,
     scene_number: u16,
+    now: Instant,
 ) -> bool {
     let Ok(mut last_scene_recall) = recent_scene_recall.lock() else {
         return true;
     };
 
-    let now = Instant::now();
     if matches!(
         *last_scene_recall,
         Some((last_scene_number, timestamp))
@@ -583,18 +552,7 @@ fn save_marker_mode(
 
 #[tauri::command]
 fn list_midi_inputs() -> Result<Vec<String>, String> {
-    let midi_input =
-        midir::MidiInput::new("dLive REAPER Link").map_err(|error| error.to_string())?;
-
-    midi_input
-        .ports()
-        .iter()
-        .map(|port| {
-            midi_input
-                .port_name(port)
-                .map_err(|error| error.to_string())
-        })
-        .collect()
+    bridge::midi_inputs()
 }
 
 #[tauri::command]
@@ -813,87 +771,190 @@ fn delete_scene_list(
 }
 
 #[tauri::command]
-fn start_midi_log(
-    port_name: String,
-    app: tauri::AppHandle,
-    state: tauri::State<'_, MidiLogState>,
-    scene_names: tauri::State<'_, SceneNames>,
-    reaper_osc_settings: tauri::State<'_, ReaperOscSettings>,
-    reaper_osc_feedback: tauri::State<'_, reaper_osc::ReaperOscFeedback>,
-    marker_mode_settings: tauri::State<'_, MarkerModeState>,
+fn get_bridge_status(bridge: tauri::State<'_, bridge::Bridge>) -> bridge::Snapshot {
+    bridge.snapshot()
+}
+#[tauri::command]
+fn save_bridge_settings(
+    config: bridge::Config,
+    bridge: tauri::State<'_, bridge::Bridge>,
 ) -> Result<(), String> {
-    let midi_input =
-        midir::MidiInput::new("dLive REAPER Link").map_err(|error| error.to_string())?;
-    let port = midi_input
-        .ports()
-        .into_iter()
-        .find(|port| midi_input.port_name(port).ok().as_deref() == Some(port_name.as_str()))
-        .ok_or_else(|| format!("MIDI input not found: {port_name}"))?;
+    bridge.save(config)
+}
+#[tauri::command]
+fn set_bridge_listening(requested: bool, bridge: tauri::State<'_, bridge::Bridge>) {
+    bridge.listen(requested);
+}
+#[tauri::command]
+fn reconnect_bridge(bridge: tauri::State<'_, bridge::Bridge>) {
+    bridge.reconnect();
+}
 
-    let mut active_connection = state
-        .connection
-        .lock()
-        .map_err(|_| "MIDI log state is unavailable".to_string())?;
-    if active_connection.is_some() {
-        return Err("dLive Link is already running".to_string());
+struct MenuBar {
+    status: tauri::menu::MenuItem<tauri::Wry>,
+    toggle: tauri::menu::MenuItem<tauri::Wry>,
+    reconnect: tauri::menu::MenuItem<tauri::Wry>,
+}
+fn status_icon(status: &str) -> tauri::image::Image<'static> {
+    let color = match status {
+        "connected" => [42, 178, 83, 255],
+        "connecting" | "waiting" => [230, 163, 35, 255],
+        "error" => [219, 76, 65, 255],
+        _ => [143, 143, 147, 255],
+    };
+    let mut rgba = vec![0; 18 * 18 * 4];
+    for y in 0..18_i32 {
+        for x in 0..18_i32 {
+            let radius = (x * 2 - 17).pow(2) + (y * 2 - 17).pow(2);
+            if radius <= 144 {
+                let index = ((y * 18 + x) * 4) as usize;
+                rgba[index..index + 4].copy_from_slice(&color);
+            }
+        }
     }
-
-    *state
-        .bank_select
-        .lock()
-        .map_err(|_| "MIDI bank state is unavailable".to_string())? = BankSelectState::default();
-
-    let recent_scene_recall = Arc::clone(&state.recent_scene_recall);
-    let bank_select = Arc::clone(&state.bank_select);
-    let scene_names = Arc::clone(&scene_names.names);
-    let reaper_osc_config = Arc::clone(&reaper_osc_settings.config);
-    let reaper_osc_feedback = reaper_osc_feedback.inner().clone();
-    let marker_mode = Arc::clone(&marker_mode_settings.mode);
-    let connection = midi_input
-        .connect(
-            &port,
-            "dLive REAPER Link MIDI Log",
-            move |_timestamp, message, _| {
-                let raw_message = message
-                    .iter()
-                    .map(|byte| format!("{byte:02X}"))
-                    .collect::<Vec<_>>()
-                    .join(" ");
-
-                let _ = app.emit("midi-message", raw_message);
-
-                if let [DLIVE_BANK_SELECT_STATUS, controller, value, ..] = message {
-                    if matches!(*controller, MIDI_BANK_SELECT_MSB | MIDI_BANK_SELECT_LSB) {
-                        if let Ok(mut bank_select) = bank_select.lock() {
-                            bank_select.update(*controller, *value);
-                        }
-                    }
+    tauri::image::Image::new_owned(rgba, 18, 18)
+}
+fn refresh_menu_bar(app: &tauri::AppHandle) {
+    let (Some(bridge), Some(menu)) = (
+        app.try_state::<bridge::Bridge>(),
+        app.try_state::<MenuBar>(),
+    ) else {
+        return;
+    };
+    let snapshot = bridge.snapshot();
+    let source = if snapshot.config.transport == "tcp" {
+        "MixRack TCP"
+    } else {
+        "MIDI input"
+    };
+    let label = match snapshot.status.as_str() {
+        "connected" => "Open",
+        "connecting" => "Connecting",
+        "waiting" => "Waiting",
+        "error" => "Error",
+        _ => "Stopped",
+    };
+    let _ = menu.status.set_text(format!("{source}: {label}"));
+    let _ = menu.toggle.set_text(if snapshot.requested {
+        "Stop Listening"
+    } else {
+        "Start Listening"
+    });
+    let _ = menu.reconnect.set_enabled(snapshot.requested);
+    if let Some(tray) = app.tray_by_id("bridge") {
+        let _ = tray.set_icon(Some(status_icon(&snapshot.status)));
+        let _ = tray.set_tooltip(Some(format!("dLive REAPER Link — {source}: {label}")));
+    }
+}
+fn setup_menu_bar(app: &mut tauri::App) -> tauri::Result<()> {
+    use tauri::{
+        menu::{Menu, MenuItem, PredefinedMenuItem},
+        tray::TrayIconBuilder,
+    };
+    let status = MenuItem::with_id(app, "status", "Scene source: Stopped", false, None::<&str>)?;
+    let note = MenuItem::with_id(
+        app,
+        "note",
+        "REAPER marker delivery is separate",
+        false,
+        None::<&str>,
+    )?;
+    let toggle = MenuItem::with_id(app, "toggle", "Start Listening", true, None::<&str>)?;
+    let reconnect = MenuItem::with_id(app, "reconnect", "Reconnect", false, None::<&str>)?;
+    let preferences = MenuItem::with_id(app, "preferences", "Preferences…", true, None::<&str>)?;
+    let quit = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
+    let separator = PredefinedMenuItem::separator(app)?;
+    let menu = Menu::with_items(
+        app,
+        &[
+            &status,
+            &note,
+            &separator,
+            &toggle,
+            &reconnect,
+            &preferences,
+            &quit,
+        ],
+    )?;
+    TrayIconBuilder::with_id("bridge")
+        .icon(status_icon("stopped"))
+        .icon_as_template(false)
+        .menu(&menu)
+        .show_menu_on_left_click(true)
+        .on_menu_event(|app, event| match event.id.as_ref() {
+            "toggle" => {
+                let bridge = app.state::<bridge::Bridge>();
+                bridge.listen(!bridge.snapshot().requested);
+                refresh_menu_bar(app);
+            }
+            "reconnect" => {
+                app.state::<bridge::Bridge>().reconnect();
+                refresh_menu_bar(app);
+            }
+            "preferences" => {
+                if let Some(window) = app.get_webview_window("main") {
+                    #[cfg(target_os = "macos")]
+                    let _ = app.set_activation_policy(tauri::ActivationPolicy::Regular);
+                    let _ = window.show();
+                    let _ = window.set_focus();
+                    let _ = app.emit("open-preferences", ());
                 }
+            }
+            "quit" => {
+                app.state::<bridge::Bridge>().listen(false);
+                app.exit(0);
+            }
+            _ => {}
+        })
+        .build(app)?;
+    app.manage(MenuBar {
+        status,
+        toggle,
+        reconnect,
+    });
+    refresh_menu_bar(app.handle());
+    #[cfg(target_os = "macos")]
+    app.set_activation_policy(tauri::ActivationPolicy::Regular);
+    Ok(())
+}
 
-                if let [DLIVE_SCENE_RECALL_STATUS, program, ..] = message {
-                    let (bank_number, bank_lsb) = bank_select
-                        .lock()
-                        .map(|bank_select| bank_select.d_live_bank())
-                        .unwrap_or_default();
-                    let Some(scene_number) = decode_scene_number(bank_number, *program) else {
-                        return;
-                    };
-                    let scene_name = scene_name(&scene_names, scene_number);
-                    let channel = (DLIVE_SCENE_RECALL_STATUS & 0x0F) + 1;
-                    let _ = app.emit(
-                        "midi-scene-recall",
-                        (
-                            scene_number,
-                            scene_name.clone(),
-                            *program,
-                            channel,
-                            bank_number,
-                            bank_lsb,
-                        ),
-                    );
+fn start_bridge(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
+    let config_dir = app.path().app_config_dir()?;
+    let path = config_dir.join("bridge_settings.json");
+    let saved_midi = app
+        .state::<MidiInputSelection>()
+        .load()?
+        .unwrap_or_default();
+    let config = bridge::Bridge::load(path.clone(), saved_midi).map_err(std::io::Error::other)?;
+    let scene_names = Arc::clone(&app.state::<SceneNames>().names);
+    let reaper_osc_config = Arc::clone(&app.state::<ReaperOscSettings>().config);
+    let reaper_osc_feedback = app.state::<reaper_osc::ReaperOscFeedback>().inner().clone();
+    let marker_mode = Arc::clone(&app.state::<MarkerModeState>().mode);
+    let recent_scene_recall = Mutex::new(None);
+    let app_handle = app.handle().clone();
+    let bridge = bridge::Bridge::new(config, path, Some(app.handle().clone()), move |recall| {
+        let app = &app_handle;
+        let scene_number = recall.scene_number;
+        let program = recall.program;
+        let channel = recall.channel;
+        let bank_number = recall.bank;
+        let bank_lsb = recall.lsb;
+        let scene_name = scene_name(&scene_names, scene_number);
 
-                    if should_create_marker(&recent_scene_recall, scene_number) {
-                        let decision = match marker_mode
+        let _ = app.emit(
+            "midi-scene-recall",
+            (
+                scene_number,
+                scene_name.clone(),
+                program,
+                channel,
+                bank_number,
+                bank_lsb,
+            ),
+        );
+
+        if should_create_marker(&recent_scene_recall, scene_number, recall.received_at) {
+            let decision = match marker_mode
                             .read()
                             .map(|mode| *mode)
                             .unwrap_or(MarkerMode::RecordingOnly)
@@ -919,16 +980,10 @@ fn start_midi_log(
                                 None => format!("Scene {scene_number} \"{scene_name}\" - marker skipped. Marker Mode: Recording Only, REAPER transport state unknown."),
                             }
                         };
-                        let _ = app.emit("marker-decision", decision);
-                    }
-                }
-            },
-            (),
-        )
-        .map_err(|error| error.to_string())?;
-
-    *active_connection = Some(connection);
-
+            let _ = app.emit("marker-decision", decision);
+        }
+    });
+    app.manage(bridge);
     Ok(())
 }
 
@@ -959,19 +1014,6 @@ mod tests {
 }
 
 #[tauri::command]
-fn stop_midi_log(state: tauri::State<'_, MidiLogState>) -> Result<(), String> {
-    let connection = state
-        .connection
-        .lock()
-        .map_err(|_| "MIDI log state is unavailable".to_string())?
-        .take()
-        .ok_or_else(|| "dLive Link is not running".to_string())?;
-    drop(connection);
-
-    Ok(())
-}
-
-#[tauri::command]
 fn test_reaper_osc_marker(
     reaper_osc_settings: tauri::State<'_, ReaperOscSettings>,
     reaper_osc_feedback: tauri::State<'_, reaper_osc::ReaperOscFeedback>,
@@ -996,7 +1038,6 @@ pub fn run() {
                 )
                 .build(),
         )
-        .manage(MidiLogState::default())
         .setup(|app| {
             let scene_file = app.path().app_data_dir()?.join("dLive_Scenes.txt");
             let app_config_dir = app.path().app_config_dir()?;
@@ -1019,7 +1060,20 @@ pub fn run() {
             app.manage(SceneListSelection {
                 path: scene_list_selection,
             });
+            start_bridge(app)?;
+            setup_menu_bar(app)?;
             Ok(())
+        })
+        .on_window_event(|window, event| {
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                api.prevent_close();
+                if window.hide().is_ok() {
+                    #[cfg(target_os = "macos")]
+                    let _ = window
+                        .app_handle()
+                        .set_activation_policy(tauri::ActivationPolicy::Accessory);
+                }
+            }
         })
         .invoke_handler(tauri::generate_handler![
             list_midi_inputs,
@@ -1044,8 +1098,10 @@ pub fn run() {
             load_scene_list,
             rename_scene_list,
             delete_scene_list,
-            start_midi_log,
-            stop_midi_log,
+            get_bridge_status,
+            save_bridge_settings,
+            set_bridge_listening,
+            reconnect_bridge,
             test_reaper_osc_marker
         ])
         .run(tauri::generate_context!())

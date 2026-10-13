@@ -226,11 +226,8 @@ window.addEventListener("DOMContentLoaded", () => {
   const midiLog = document.querySelector("#midi-log");
   const liveMidiRefreshButton = document.querySelector("#refresh-live-midi");
   let dLiveLinkRunning = false;
-  let activeMidiInput;
   let selectedMidiInput = "";
-  let midiSelectionInitialized = false;
   let midiListeningRequested = false;
-  let midiIntentVersion = 0;
   let pendingMidiRefresh;
   let availableMidiInputs = [];
   let midiInputListKey;
@@ -248,13 +245,23 @@ window.addEventListener("DOMContentLoaded", () => {
   let pendingSceneListDeleteName;
   let pendingCreateSceneListName;
   let midiEventSubscriptions;
+  let bridgeSnapshot;
+  let bridgeSettingsLoaded = false;
+  const bridgeTransport = document.querySelector("#bridge-transport");
+  const bridgeHost = document.querySelector("#bridge-host");
+  const bridgePort = document.querySelector("#bridge-port");
+  const bridgeChannel = document.querySelector("#bridge-channel");
+  const bridgeSettingsResult = document.querySelector("#bridge-settings-result");
+  function updateSourceFields() {
+    document.querySelector("#bridge-tcp-settings").hidden = bridgeTransport.value !== "tcp";
+    document.querySelector("#bridge-midi-settings").hidden = bridgeTransport.value !== "midi";
+  }
+  bridgeTransport.addEventListener("change", updateSourceFields);
 
   function updateReadiness() {
-    readinessMidiInput.textContent = `MIDI Input: ${
-      selectedMidiInput
-        ? availableMidiInputs.includes(selectedMidiInput) ? "Ready" : "Unavailable"
-        : "Not selected"
-    }`;
+    readinessMidiInput.textContent = bridgeSnapshot
+      ? `Scene source: ${bridgeSnapshot.config.transport === "tcp" ? "MixRack TCP" : "MIDI input"} (${bridgeSnapshot.status})`
+      : "Scene source: Loading";
     readinessReaperOsc.textContent = savedReaperOscTarget
       ? `REAPER OSC: Configured (${savedReaperOscTarget.host}:${savedReaperOscTarget.port})`
       : "REAPER OSC: Check settings";
@@ -269,15 +276,12 @@ window.addEventListener("DOMContentLoaded", () => {
     const armed = dLiveLinkRunning || midiListeningRequested;
     const state = armed ? "Stop Listening" : "Start Listening";
     midiListenerToggleState.textContent = state;
-    midiListenerStatus.textContent = dLiveLinkRunning
-      ? "Listening"
-      : midiListeningRequested && selectedMidiInput ? "Waiting" : "Stopped";
-    midiListenerStatus.title = selectedMidiInput
-      ? `MIDI input: ${selectedMidiInput}. Port presence does not confirm a desk connection.`
-      : "Select a MIDI input in Setup.";
+    const labels = { connected: "Listening", connecting: "Connecting", waiting: "Waiting", stopped: "Stopped", error: "Error" };
+    midiListenerStatus.textContent = labels[bridgeSnapshot?.status] || "Stopped";
+    midiListenerStatus.title = bridgeSnapshot?.detail || "Configure a scene source in Setup.";
     midiListenerToggleButton.setAttribute("aria-label", `dLive Listener: ${state}`);
     midiListenerToggleButton.classList.toggle("is-listening", dLiveLinkRunning);
-    midiListenerToggleButton.disabled = !armed && !selectedMidiInput;
+    midiListenerToggleButton.disabled = !bridgeSnapshot;
   }
 
   function updateMarkerModeToggle() {
@@ -1002,111 +1006,82 @@ window.addEventListener("DOMContentLoaded", () => {
     return loaded;
   }
 
-  // All refreshes and listener actions share one operation. Intent may change
-  // during an await; repeat the check before releasing the operation in that case.
+  // This timer only displays backend state; Rust owns listening and recovery.
   function refreshMidiInputs() {
     if (pendingMidiRefresh) return pendingMidiRefresh;
     midiButton.disabled = true;
     liveMidiRefreshButton.disabled = true;
     pendingMidiRefresh = (async () => {
-      let checkedVersion;
-      do {
-        checkedVersion = midiIntentVersion;
-        try {
-          await checkMidiInput();
-        } catch (error) {
-          midiResult.textContent = `Could not refresh MIDI input: ${error}`;
-          midiLogResult.textContent = midiResult.textContent;
+      try {
+        await ensureMidiEventSubscriptions();
+        await refreshBridgeStatus();
+        const inputs = await invoke("list_midi_inputs");
+        availableMidiInputs = inputs;
+        const listKey = JSON.stringify([selectedMidiInput, inputs]);
+        if (midiInputListKey !== listKey) {
+          const prompt = document.createElement("option");
+          prompt.value = "";
+          prompt.textContent = inputs.length ? "Select MIDI input" : "No MIDI inputs found";
+          const names = selectedMidiInput && !inputs.includes(selectedMidiInput) ? [selectedMidiInput, ...inputs] : inputs;
+          midiInputSelect.replaceChildren(prompt, ...names.map((name) => {
+            const option = document.createElement("option"); option.value = name;
+            option.textContent = inputs.includes(name) ? name : `${name} (unavailable)`;
+            return option;
+          }));
+          midiInputSelect.value = selectedMidiInput;
+          midiInputSelect.disabled = !names.length;
+          midiInputListKey = listKey;
         }
-      } while (checkedVersion !== midiIntentVersion);
+        midiResult.textContent = inputs.length ? "" : "No MIDI inputs available";
+      } catch (error) {
+        midiResult.textContent = `Could not refresh input information: ${error}`;
+      }
     })().finally(() => {
       pendingMidiRefresh = undefined;
       midiButton.disabled = false;
       liveMidiRefreshButton.disabled = false;
-      updateMidiListenerToggle();
-      updateReadiness();
     });
     return pendingMidiRefresh;
   }
 
-  async function checkMidiInput() {
-    if (!midiSelectionInitialized) {
-      const savedInput = await invoke("get_saved_midi_input");
-      if (!midiSelectionInitialized) {
-        selectedMidiInput = savedInput || "";
-        midiListeningRequested = Boolean(savedInput);
-        midiSelectionInitialized = true;
-      }
+  async function refreshBridgeStatus() {
+    bridgeSnapshot = await invoke("get_bridge_status");
+    dLiveLinkRunning = bridgeSnapshot.status === "connected";
+    midiListeningRequested = bridgeSnapshot.requested;
+    if (!bridgeSettingsLoaded) {
+      const config = bridgeSnapshot.config;
+      selectedMidiInput = config.midi_input;
+      bridgeTransport.value = config.transport;
+      bridgeHost.value = config.host;
+      bridgePort.value = config.port;
+      bridgeChannel.value = config.channel;
+      bridgeSettingsLoaded = true;
+      updateSourceFields();
     }
-    // A deliberate Stop must still work if enumerating MIDI inputs fails.
-    if (dLiveLinkRunning && !midiListeningRequested) {
-      await invoke("stop_midi_log");
-      dLiveLinkRunning = false;
-      activeMidiInput = undefined;
-      clearMidiSceneStatus();
-      midiLogResult.textContent = "dLive Listener stopped";
-      updateMidiListenerToggle();
-    }
-    const inputs = await invoke("list_midi_inputs");
-    availableMidiInputs = inputs;
-    const listKey = JSON.stringify([selectedMidiInput, inputs]);
-    if (midiInputListKey !== listKey) {
-      const prompt = document.createElement("option");
-      prompt.value = "";
-      prompt.textContent = inputs.length ? "Select MIDI input" : "No MIDI inputs found";
-      const names = selectedMidiInput && !inputs.includes(selectedMidiInput)
-        ? [selectedMidiInput, ...inputs] : inputs;
-      midiInputSelect.replaceChildren(prompt, ...names.map((name) => {
-        const option = document.createElement("option");
-        option.value = name;
-        option.textContent = inputs.includes(name) ? name : `${name} (unavailable)`;
-        return option;
-      }));
-      midiInputSelect.value = selectedMidiInput;
-      midiInputSelect.disabled = !names.length;
-      midiInputListKey = listKey;
-    }
-
-    if (dLiveLinkRunning && (!midiListeningRequested ||
-        activeMidiInput !== selectedMidiInput || !inputs.includes(activeMidiInput))) {
-      await invoke("stop_midi_log");
-      dLiveLinkRunning = false;
-      activeMidiInput = undefined;
-      clearMidiSceneStatus();
-    }
+    midiLogResult.textContent = bridgeSnapshot.detail || "dLive Listener stopped";
     updateMidiListenerToggle();
     updateReadiness();
-    if (!selectedMidiInput) {
-      midiResult.textContent = inputs.length ? "Choose a MIDI input." : "No MIDI inputs available";
-    } else if (!inputs.includes(selectedMidiInput)) {
-      midiResult.textContent = `MIDI input unavailable: ${selectedMidiInput}`;
-      midiLogResult.textContent = midiListeningRequested
-        ? `Waiting for MIDI input: ${selectedMidiInput}` : "dLive Listener stopped";
-    } else {
-      midiResult.textContent = `MIDI input available: ${selectedMidiInput}`;
-      if (midiListeningRequested && !dLiveLinkRunning) {
-        const portName = selectedMidiInput;
-        await ensureMidiEventSubscriptions();
-        // Stop or a new selection can arrive while subscriptions are installed.
-        if (!midiListeningRequested || selectedMidiInput !== portName) return;
-        clearMidiSceneStatus();
-        midiLog.textContent = "";
-        await invoke("start_midi_log", { portName });
-        activeMidiInput = portName;
-        dLiveLinkRunning = true;
-        // Drop an obsolete connection before allowing another check/start.
-        if (!midiListeningRequested || selectedMidiInput !== portName) {
-          await invoke("stop_midi_log");
-          activeMidiInput = undefined;
-          dLiveLinkRunning = false;
-          clearMidiSceneStatus();
-        }
-      }
-      midiLogResult.textContent = dLiveLinkRunning
-        ? "Listening for scene recalls on the selected MIDI input"
-        : "dLive Listener stopped";
-    }
   }
+
+  const saveBridgeButton = document.querySelector("#save-bridge-settings");
+  saveBridgeButton.addEventListener("click", async () => {
+    saveBridgeButton.disabled = true;
+    try {
+      await invoke("save_bridge_settings", { config: {
+        transport: bridgeTransport.value, host: bridgeHost.value.trim(),
+        port: Number(bridgePort.value), channel: Number(bridgeChannel.value),
+        midi_input: selectedMidiInput,
+      } });
+      bridgeSettingsResult.textContent = "Scene source saved";
+      clearMidiSceneStatus();
+      await refreshBridgeStatus();
+    } catch (error) { bridgeSettingsResult.textContent = `Could not save scene source: ${error}`; }
+    finally { saveBridgeButton.disabled = false; }
+  });
+  document.querySelector("#reconnect-bridge").addEventListener("click", async () => {
+    try { await invoke("reconnect_bridge"); await refreshBridgeStatus(); }
+    catch (error) { bridgeSettingsResult.textContent = `Could not reconnect: ${error}`; }
+  });
 
   void refreshMidiInputs();
   window.setInterval(() => { void refreshMidiInputs(); }, 2000);
@@ -1392,20 +1367,9 @@ window.addEventListener("DOMContentLoaded", () => {
     void refreshMidiInputs();
   });
 
-  midiInputSelect.addEventListener("change", async () => {
-    const portName = midiInputSelect.value;
-    midiSelectionInitialized = true;
-    selectedMidiInput = portName;
-    midiIntentVersion += 1;
-    updateMidiListenerToggle();
-    updateReadiness();
-    void refreshMidiInputs();
-    if (!portName) return;
-    try {
-      await invoke("save_midi_input", { portName });
-    } catch (error) {
-      midiResult.textContent = `Could not save MIDI input: ${error}`;
-    }
+  midiInputSelect.addEventListener("change", () => {
+    selectedMidiInput = midiInputSelect.value;
+    bridgeSettingsResult.textContent = "Choose Save source to apply this selection.";
   });
 
   function clearMidiSceneStatus() {
@@ -1418,9 +1382,12 @@ window.addEventListener("DOMContentLoaded", () => {
   async function ensureMidiEventSubscriptions() {
     if (midiEventSubscriptions) return;
     const subscriptions = [];
+
     try {
+      subscriptions.push(await window.__TAURI__.event.listen("open-preferences", () => showAppView(2)));
+      subscriptions.push(await window.__TAURI__.event.listen("bridge-status", () => { void refreshBridgeStatus().catch((error) => { midiLogResult.textContent = `Could not read connection status: ${error}`; }); }));
       subscriptions.push(await window.__TAURI__.event.listen("midi-message", (event) => {
-        midiLog.textContent = `${event.payload}\n${midiLog.textContent}`;
+        midiLog.textContent = `${event.payload}\n${midiLog.textContent}`.split("\n").slice(0, 200).join("\n");
       }));
       subscriptions.push(await window.__TAURI__.event.listen("midi-scene-recall", (event) => {
         const [sceneNumber, sceneName, program, channel, bank, bankLsb] = event.payload;
@@ -1438,10 +1405,13 @@ window.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  midiListenerToggleButton.addEventListener("click", () => {
-    midiListeningRequested = !(dLiveLinkRunning || midiListeningRequested);
-    midiIntentVersion += 1;
-    updateMidiListenerToggle();
-    void refreshMidiInputs();
+  midiListenerToggleButton.addEventListener("click", async () => {
+    midiListenerToggleButton.disabled = true;
+    try {
+      await invoke("set_bridge_listening", { requested: !midiListeningRequested });
+      clearMidiSceneStatus();
+      await refreshBridgeStatus();
+    } catch (error) { midiLogResult.textContent = `Could not change listening: ${error}`; }
+    finally { midiListenerToggleButton.disabled = !bridgeSnapshot; }
   });
 });
