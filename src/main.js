@@ -259,6 +259,9 @@ window.addEventListener("DOMContentLoaded", () => {
   bridgeTransport.addEventListener("change", updateSourceFields);
 
   function updateReadiness() {
+    document.querySelectorAll("[data-reaper-receive-port]").forEach((element) => {
+      element.textContent = String(savedReaperOscTarget?.port ?? 49101);
+    });
     readinessMidiInput.textContent = bridgeSnapshot
       ? `Scene source: ${bridgeSnapshot.config.transport === "tcp" ? "MixRack TCP" : "MIDI input"} (${bridgeSnapshot.status})`
       : "Scene source: Loading";
@@ -1371,6 +1374,60 @@ window.addEventListener("DOMContentLoaded", () => {
     selectedMidiInput = midiInputSelect.value;
     bridgeSettingsResult.textContent = "Choose Save source to apply this selection.";
   });
+
+  const playbackRecallToggle = document.querySelector("#toggle-playback-recall");
+  const playbackRecallResult = document.querySelector("#playback-recall-result");
+  const playbackRecallStatus = document.querySelector("#playback-recall-status");
+  const playbackRecallDetail = document.querySelector("#playback-recall-detail");
+  let playbackRecallEnabled = false;
+  let playbackRecallChanging = false;
+  playbackRecallToggle.addEventListener("click", async () => {
+    playbackRecallChanging = true;
+    playbackRecallToggle.disabled = true;
+    playbackRecallResult.textContent = "";
+    try {
+      await invoke("set_playback_recall", { enabled: !playbackRecallEnabled });
+    } catch (error) {
+      playbackRecallResult.textContent = String(error);
+    } finally {
+      playbackRecallChanging = false;
+      await refreshPlaybackPreview();
+    }
+  });
+
+  const playbackFeedback = document.querySelector("#playback-feedback");
+  const playbackPreview = document.querySelector("#playback-preview");
+  let playbackPreviewPending = false;
+
+  async function refreshPlaybackPreview() {
+    if (playbackPreviewPending) return;
+    playbackPreviewPending = true;
+    try {
+      const { feedback, transport, message, recall_enabled, recall_message } = await invoke("get_playback_preview");
+      playbackRecallEnabled = recall_enabled;
+      playbackRecallToggle.textContent = recall_enabled ? "On" : "Off";
+      playbackRecallToggle.setAttribute("aria-pressed", String(recall_enabled));
+      playbackRecallToggle.classList.toggle("is-listening", recall_enabled);
+      playbackRecallToggle.disabled = playbackRecallChanging;
+      playbackRecallStatus.textContent = recall_enabled
+        ? "On — sends scene recalls to MixRack; marker creation suspended"
+        : "Off — playback preview only";
+      if (playbackRecallDetail.textContent !== recall_message) playbackRecallDetail.textContent = recall_message;
+      const marker = feedback.marker_name === null
+        ? "Awaiting marker" : feedback.marker_name || "(empty marker)";
+      const position = feedback.position === null
+        ? "" : ` · ${feedback.position.toFixed(2)} s`;
+      playbackFeedback.textContent = `Last observed: ${transport} · ${marker}${position}`;
+      if (playbackPreview.textContent !== message) playbackPreview.textContent = message;
+    } catch (error) {
+      playbackPreview.textContent = `Playback preview unavailable: ${error}`;
+    } finally {
+      playbackPreviewPending = false;
+    }
+  }
+
+  void refreshPlaybackPreview();
+  window.setInterval(() => { void refreshPlaybackPreview(); }, 250);
 
   function clearMidiSceneStatus() {
     midiSceneResult.textContent = "";

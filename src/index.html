@@ -44,6 +44,11 @@
               <span id="marker-mode-toggle-state">Recording Only</span>
             </button>
           </div>
+          <div class="live-control-row">
+            <span class="live-control-label">Playback recall</span>
+            <button id="toggle-playback-recall" class="live-toggle-button" type="button" aria-pressed="false" disabled>Off</button>
+          </div>
+          <p id="playback-recall-result" role="status" aria-live="polite"></p>
         </section>
       </section>
 
@@ -74,14 +79,40 @@
         <section class="app-section setup-section" aria-labelledby="reaper-connection-heading">
           <h2 id="reaper-connection-heading">REAPER OSC</h2>
           <div class="setup-row setup-row-osc">
-            <label for="reaper-osc-host">Host</label>
+            <label for="reaper-osc-host">REAPER IP</label>
             <input id="reaper-osc-host" type="text" autocomplete="off" spellcheck="false" />
             <label for="reaper-osc-port">Port</label>
             <input id="reaper-osc-port" type="number" min="1" max="65535" inputmode="numeric" />
             <button id="save-reaper-osc-settings" type="button">Save</button>
-            <button id="test-reaper-connection" type="button">Test</button>
+            <button id="test-reaper-connection" type="button">Test marker</button>
           </div>
-          <p class="reaper-osc-note">Enable OSC in REAPER. Feedback: 127.0.0.1:49102.</p>
+          <p class="reaper-osc-note">Commands to REAPER: <span data-reaper-receive-port>49101</span> · Feedback to this app: 49102.</p>
+          <p class="reaper-osc-note">Test marker adds “REAPER CONNECTION TEST” to the active session. Use a test session.</p>
+          <details class="reaper-osc-guide">
+            <summary>Set up OSC in REAPER</summary>
+            <p>For REAPER and this app on the same Mac:</p>
+            <ol>
+              <li>Open REAPER Preferences → Control/OSC/web. Choose Add, or Edit the OSC entry you use for this app.</li>
+              <li>Use these settings:
+                <table>
+                  <caption>REAPER Control Surface Settings</caption>
+                  <tbody>
+                    <tr><th scope="row">Control surface mode</th><td>OSC (Open Sound Control)</td></tr>
+                    <tr><th scope="row">Device name</th><td>dLive REAPER Link (any name)</td></tr>
+                    <tr><th scope="row">Pattern config</th><td>Default</td></tr>
+                    <tr><th scope="row">Mode</th><td>Configure device IP+local port</td></tr>
+                    <tr><th scope="row">Device IP</th><td>127.0.0.1 — this app</td></tr>
+                    <tr><th scope="row">Device port</th><td>49102 — feedback to this app</td></tr>
+                    <tr><th scope="row">Local listen port</th><td><span data-reaper-receive-port>49101</span> — commands into REAPER</td></tr>
+                  </tbody>
+                </table>
+              </li>
+              <li>Confirm with OK. In this app, use REAPER IP 127.0.0.1 and the same Local listen port, then Save.</li>
+              <li>In REAPER’s Actions list, run “Control surface: Refresh all surfaces”. Wait a couple of seconds. Diagnostics should show transport and the current marker; a marker before the cursor is needed for playback recall.</li>
+            </ol>
+            <p><strong>REAPER on another computer:</strong> set this app’s REAPER IP to that computer’s IP. In REAPER, set Device IP to the computer running this app. Keep Device port 49102 and match Local listen port to this app’s Port.</p>
+            <p>Playback recall also requires a listening Direct MixRack TCP connection and exact marker/scene-name matches. Leave the other OSC settings unchanged.</p>
+          </details>
           <p id="reaper-osc-settings-result" role="status" aria-live="polite"></p>
         </section>
       </section>
@@ -155,6 +186,11 @@
           <section class="diagnostics-group" aria-labelledby="reaper-osc-diagnostics-heading">
             <h3 id="reaper-osc-diagnostics-heading">REAPER OSC</h3>
             <div class="diagnostics-status">
+              <p id="playback-recall-status">Off — playback preview only</p>
+              <p>If feedback is incomplete, run “Control surface: Refresh all surfaces” in REAPER.</p>
+              <p id="playback-feedback">Waiting for REAPER feedback</p>
+              <p id="playback-recall-detail" role="status" aria-live="polite"></p>
+              <p id="playback-preview" role="status" aria-live="polite"></p>
               <p id="readiness-reaper-osc">REAPER OSC: Check settings</p>
               <p id="marker-mode-result" role="status" aria-live="polite" hidden></p>
             </div>

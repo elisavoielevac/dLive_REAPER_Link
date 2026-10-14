@@ -1,5 +1,20 @@
 # Changelog
 
+## Unreleased — 2026-10-14
+
+The working app still reports v0.3.0-beta.1; this entry is not a release or version bump.
+
+- Add a four-page illustrated PDF user guide and real macOS app/REAPER screenshots in the README.
+- Add an expandable REAPER OSC setup guide with exact field names, port directions, another-computer setup, initial refresh, and explicit test-marker labeling.
+- Add playback/current-marker feedback and Diagnostics preview using exact marker-name-to-scene-name matching, preserving original scene slots.
+- Add MixRack bank/program-change sending through the active TCP connection, with bounded writes, connection-specific sends, and no command queue or retry.
+- Add an off-by-default Playback recall toggle. Recall only when the mapped scene differs from the last sent scene; retain that memory across Stop/Play, Pause/Resume, and same-song loops.
+- Exclude recording, suppress desk-to-REAPER marker creation while recall is enabled, and protect queued input and delayed echoes after disabling.
+- Disarm on connection/source/settings/list changes or lost playback feedback, requiring explicit re-enable.
+- Accept OSC feedback only from the configured REAPER host and clear old playback state when the target changes.
+
+Validation: nineteen Rust tests and macOS app builds passed. Native loopback testing confirmed the toggle, outgoing scene bytes, echo suppression, and disarming on disconnect. User testing confirmed the playback preview, including recording exclusion, and subsequent playback scene recalls with dLive Director. The Surface cue list did not move, which the user accepted. Physical MixRack/Surface testing remains pending; Director results do not establish hardware validation.
+
 ## v0.3.0-beta.1 — 2026-10-13
 
 - Add direct plain MixRack TCP reception alongside selectable MIDI input fallback.

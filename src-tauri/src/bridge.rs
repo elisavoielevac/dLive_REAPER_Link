@@ -2,8 +2,8 @@
 use serde::{Deserialize, Serialize};
 use std::{
     fs,
-    io::Read,
-    net::{IpAddr, SocketAddr, TcpStream},
+    io::{Read, Write},
+    net::{IpAddr, Shutdown, SocketAddr, TcpStream},
     path::PathBuf,
     sync::{mpsc, Arc, Mutex},
     thread,
@@ -64,7 +64,33 @@ struct Control {
     snapshot: Snapshot,
     exit: bool,
     session: Option<u64>,
+    tcp_writer: Option<TcpStream>,
 }
+// A pending recall belongs to this connection, never a later reconnect.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(crate) struct SendSession {
+    revision: u64,
+    session: u64,
+}
+
+// A&H V2: BN 00 bank, CN program. Explicit status and bank on every recall.
+fn scene_recall_bytes(scene: u16, channel: u8) -> Result<[u8; 5], String> {
+    if !(1..=500).contains(&scene) {
+        return Err("Scene number must be between 1 and 500".into());
+    }
+    if !(1..=12).contains(&channel) {
+        return Err("Desk MIDI channel must be between 1 and 12".into());
+    }
+    let index = scene - 1;
+    Ok([
+        0xb0 + channel - 1,
+        0,
+        (index / 128) as u8,
+        0xc0 + channel - 1,
+        (index % 128) as u8,
+    ])
+}
+
 pub struct Bridge {
     control: Arc<Mutex<Control>>,
     path: PathBuf,
@@ -104,6 +130,7 @@ impl Bridge {
             },
             exit: false,
             session: None,
+            tcp_writer: None,
         }));
         let (tx, rx) = mpsc::sync_channel::<(u64, u64, SceneRecall)>(128);
         let dispatch_control = control.clone();
@@ -128,6 +155,61 @@ impl Bridge {
     pub fn snapshot(&self) -> Snapshot {
         self.control.lock().unwrap().snapshot.clone()
     }
+    // Internal only; the playback worker owns arming and scene decisions.
+    pub(crate) fn send_session(&self) -> Result<SendSession, String> {
+        let c = self
+            .control
+            .lock()
+            .map_err(|_| "Scene source unavailable")?;
+        if c.exit
+            || !c.snapshot.requested
+            || c.snapshot.config.transport != "tcp"
+            || c.snapshot.status != "connected"
+            || c.tcp_writer.is_none()
+        {
+            return Err("Scene sending requires an active Direct MixRack TCP connection".into());
+        }
+        Ok(SendSession {
+            revision: c.snapshot.revision,
+            session: c.session.ok_or("MixRack connection unavailable")?,
+        })
+    }
+
+    pub(crate) fn send_scene(&self, expected: SendSession, scene: u16) -> Result<(), String> {
+        let mut c = self
+            .control
+            .lock()
+            .map_err(|_| "Scene source unavailable")?;
+        if c.exit
+            || !c.snapshot.requested
+            || c.snapshot.config.transport != "tcp"
+            || c.snapshot.status != "connected"
+            || c.snapshot.revision != expected.revision
+            || c.session != Some(expected.session)
+        {
+            return Err("MixRack connection changed; scene recall discarded".into());
+        }
+        let bytes = scene_recall_bytes(scene, c.snapshot.config.channel)?;
+        // Serialize short, bounded writes with control changes. No queue/retry.
+        let result = c
+            .tcp_writer
+            .as_mut()
+            .ok_or("MixRack connection unavailable")?
+            .write_all(&bytes);
+        if let Err(error) = result {
+            if let Some(stream) = c.tcp_writer.take() {
+                let _ = stream.shutdown(Shutdown::Both);
+            }
+            c.session = None;
+            c.snapshot.revision += 1;
+            c.snapshot.status = "waiting".into();
+            c.snapshot.detail = format!("Scene send failed; delivery unknown: {error}");
+            return Err(c.snapshot.detail.clone());
+        }
+        // This confirms only the socket write, not that the desk recalled a scene.
+        Ok(())
+    }
+
     pub fn save(&self, mut config: Config) -> Result<(), String> {
         config.host = config.host.trim().into();
         config.validate()?;
@@ -142,6 +224,8 @@ impl Bridge {
         )
         .map_err(|e| e.to_string())?;
         if c.snapshot.config != config {
+            c.tcp_writer = None;
+            c.session = None;
             c.snapshot.config = config;
             c.snapshot.revision += 1;
             c.snapshot.status = if c.snapshot.requested {
@@ -156,6 +240,8 @@ impl Bridge {
     }
     pub fn listen(&self, requested: bool) {
         let mut c = self.control.lock().unwrap();
+        c.tcp_writer = None;
+        c.session = None;
         c.snapshot.requested = requested;
         c.snapshot.revision += 1;
         c.snapshot.status = if requested { "waiting" } else { "stopped" }.into();
@@ -164,6 +250,8 @@ impl Bridge {
     pub fn reconnect(&self) {
         let mut c = self.control.lock().unwrap();
         if c.snapshot.requested {
+            c.tcp_writer = None;
+            c.session = None;
             c.snapshot.revision += 1;
             c.snapshot.status = "waiting".into();
             c.snapshot.detail.clear();
@@ -232,7 +320,13 @@ fn worker(
                 }
                 Ok(_) => {
                     midi = None;
-                    control.lock().unwrap().session = None;
+                    {
+                        let mut c = control.lock().unwrap();
+                        if c.snapshot.revision == revision && c.session == Some(session) {
+                            c.session = None;
+                            c.tcp_writer = None;
+                        }
+                    }
                     next_attempt = Instant::now();
                 }
                 Err(error) => report(&control, revision, "error", error),
@@ -276,6 +370,17 @@ fn worker(
                                     .with_interval(Duration::from_secs(5)),
                             )
                             .map_err(|e| e.to_string())?;
+                        stream
+                            .set_write_timeout(Some(Duration::from_millis(100)))
+                            .map_err(|e| e.to_string())?;
+                        let writer = stream.try_clone().map_err(|e| e.to_string())?;
+                        {
+                            let mut c = control.lock().unwrap();
+                            if c.exit || c.snapshot.revision != revision || !c.snapshot.requested {
+                                return Err("Connection attempt superseded".into());
+                            }
+                            c.tcp_writer = Some(writer);
+                        }
                         tcp = Some(stream);
                         parser = MidiStream::default();
                         Ok(())
@@ -314,7 +419,13 @@ fn worker(
             match stream.read(&mut bytes) {
                 Ok(0) => {
                     tcp = None;
-                    control.lock().unwrap().session = None;
+                    {
+                        let mut c = control.lock().unwrap();
+                        if c.snapshot.revision == revision && c.session == Some(session) {
+                            c.session = None;
+                            c.tcp_writer = None;
+                        }
+                    }
                     report(
                         &control,
                         revision,
@@ -344,7 +455,13 @@ fn worker(
                     ) => {}
                 Err(e) => {
                     tcp = None;
-                    control.lock().unwrap().session = None;
+                    {
+                        let mut c = control.lock().unwrap();
+                        if c.snapshot.revision == revision && c.session == Some(session) {
+                            c.session = None;
+                            c.tcp_writer = None;
+                        }
+                    }
                     report(&control, revision, "waiting", e.to_string());
                 }
             }
@@ -508,6 +625,156 @@ impl MidiStream {
 mod tests {
     use super::*;
     #[test]
+    fn outgoing_scene_bytes_match_protocol_boundaries_and_channels() {
+        for channel in [1, 12] {
+            let b = 0xb0 + channel - 1;
+            let c = 0xc0 + channel - 1;
+            for (scene, bank, program) in [
+                (1, 0, 0),
+                (128, 0, 127),
+                (129, 1, 0),
+                (256, 1, 127),
+                (257, 2, 0),
+                (384, 2, 127),
+                (385, 3, 0),
+                (500, 3, 115),
+            ] {
+                assert_eq!(
+                    scene_recall_bytes(scene, channel),
+                    Ok([b, 0, bank, c, program])
+                );
+            }
+        }
+        for channel in 1..=12 {
+            for scene in 1..=500 {
+                let bytes = scene_recall_bytes(scene, channel).unwrap();
+                let mut decoder = SceneDecoder::default();
+                assert!(decoder.receive(&bytes[..3], channel).is_none());
+                assert_eq!(
+                    decoder.receive(&bytes[3..], channel).unwrap().scene_number,
+                    scene
+                );
+            }
+        }
+        for (scene, channel) in [(0, 1), (501, 1), (1, 0), (1, 13)] {
+            assert!(scene_recall_bytes(scene, channel).is_err());
+        }
+    }
+
+    fn assert_no_application_bytes(socket: &mut TcpStream) {
+        socket
+            .set_read_timeout(Some(Duration::from_millis(150)))
+            .unwrap();
+        let mut byte = [0];
+        let error = socket
+            .read(&mut byte)
+            .expect_err("unexpected application bytes or EOF");
+        assert!(matches!(
+            error.kind(),
+            std::io::ErrorKind::WouldBlock | std::io::ErrorKind::TimedOut
+        ));
+    }
+
+    #[test]
+    fn simulated_mixrack_receives_exact_sends_and_rejects_stale_sessions() {
+        use std::net::TcpListener;
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let config = Config {
+            transport: "tcp".into(),
+            host: "127.0.0.1".into(),
+            port: listener.local_addr().unwrap().port(),
+            channel: 12,
+            midi_input: String::new(),
+        };
+        let path =
+            std::env::temp_dir().join(format!("dlive-send-test-{}.json", std::process::id()));
+        let bridge = Bridge::new(config.clone(), path.clone(), None, |_| {});
+        wait_for(&bridge, "connected");
+        let (mut socket, _) = listener.accept().unwrap();
+        // Baseline reception is still receive-only until an explicit internal send.
+        assert_no_application_bytes(&mut socket);
+        let session = bridge.send_session().unwrap();
+        for (scene, expected) in [
+            (500, [0xbb, 0, 3, 0xcb, 115]),
+            (129, [0xbb, 0, 1, 0xcb, 0]),
+            (1, [0xbb, 0, 0, 0xcb, 0]),
+        ] {
+            bridge.send_scene(session, scene).unwrap();
+            let mut bytes = [0; 5];
+            socket.read_exact(&mut bytes).unwrap();
+            assert_eq!(bytes, expected);
+        }
+        assert!(bridge.send_scene(session, 0).is_err());
+        assert!(bridge.send_scene(session, 501).is_err());
+        assert_no_application_bytes(&mut socket);
+        bridge.listen(false);
+        assert!(bridge.send_session().is_err());
+        assert!(bridge.send_scene(session, 2).is_err());
+        bridge.listen(true);
+        wait_for(&bridge, "connected");
+        let (mut new_socket, _) = listener.accept().unwrap();
+        assert!(bridge.send_scene(session, 2).is_err());
+        assert_no_application_bytes(&mut new_socket);
+        let new_session = bridge.send_session().unwrap();
+        drop(new_socket);
+        wait_for(&bridge, "waiting");
+        assert!(bridge.send_scene(new_session, 3).is_err());
+        wait_for(&bridge, "connected");
+        let (mut recovered, _) = listener.accept().unwrap();
+        assert!(bridge.send_scene(new_session, 3).is_err());
+        assert_no_application_bytes(&mut recovered);
+        bridge
+            .send_scene(bridge.send_session().unwrap(), 128)
+            .unwrap();
+        let mut bytes = [0; 5];
+        recovered.read_exact(&mut bytes).unwrap();
+        assert_eq!(bytes, [0xbb, 0, 0, 0xcb, 127]);
+        let before_change = bridge.send_session().unwrap();
+        let other = TcpListener::bind("127.0.0.1:0").unwrap();
+        let mut changed = config;
+        changed.port = other.local_addr().unwrap().port();
+        changed.channel = 1;
+        bridge.save(changed).unwrap();
+        assert!(bridge.send_scene(before_change, 3).is_err());
+        wait_for(&bridge, "connected");
+        let (mut changed_socket, _) = other.accept().unwrap();
+        assert_no_application_bytes(&mut changed_socket);
+        let changed_session = bridge.send_session().unwrap();
+        bridge.send_scene(changed_session, 257).unwrap();
+        changed_socket.read_exact(&mut bytes).unwrap();
+        assert_eq!(bytes, [0xb0, 0, 2, 0xc0, 0]);
+
+        // Force a write failure while the receive side is still open.
+        bridge
+            .control
+            .lock()
+            .unwrap()
+            .tcp_writer
+            .as_ref()
+            .unwrap()
+            .shutdown(Shutdown::Write)
+            .unwrap();
+        let error = bridge.send_scene(changed_session, 2).unwrap_err();
+        assert!(error.contains("delivery unknown"));
+        assert!(bridge.send_scene(changed_session, 2).is_err());
+        bridge.listen(false);
+        let _ = fs::remove_file(path);
+    }
+
+    #[test]
+    fn midi_source_cannot_send_scenes() {
+        let config = Config {
+            transport: "midi".into(),
+            host: String::new(),
+            port: 51325,
+            channel: 12,
+            midi_input: String::new(),
+        };
+        let bridge = Bridge::new(config, PathBuf::new(), None, |_| {});
+        assert!(bridge.send_session().is_err());
+    }
+
+    #[test]
     fn split_running_status_and_interleaved_realtime() {
         let mut p = MidiStream::default();
         assert!(p.feed(&[0xbb, 0]).is_empty());
@@ -562,6 +829,7 @@ mod tests {
             },
             exit: false,
             session: None,
+            tcp_writer: None,
         });
         report(&control, 1, "connected", "old connection".into());
         assert_eq!(control.lock().unwrap().snapshot.status, "stopped");

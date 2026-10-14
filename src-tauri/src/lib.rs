@@ -494,6 +494,280 @@ fn scene_name(scene_names: &RwLock<Vec<String>>, scene_number: u16) -> String {
         .unwrap_or_else(|| format!("Unnamed scene {scene_number}"))
 }
 
+// Keep line/slot numbers, including blank slots; never use the REAPER marker ID.
+fn scene_number_for_marker(names: &[String], marker: &str) -> Result<Option<u16>, String> {
+    if marker.is_empty() {
+        return Ok(None);
+    }
+    let mut matches = names
+        .iter()
+        .take(SCENE_SLOT_COUNT)
+        .enumerate()
+        .filter(|(_, name)| name.as_str() == marker);
+    let first = matches.next().map(|(index, _)| (index + 1) as u16);
+    if matches.next().is_some() {
+        return Err("Ambiguous marker name: multiple scene slots match".to_string());
+    }
+    Ok(first)
+}
+
+struct PlaybackRecall {
+    state: Mutex<RecallState>,
+}
+
+struct RecallState {
+    session: Option<bridge::SendSession>,
+    last_scene: Option<u16>,
+    last_sent: Option<(u16, Instant)>,
+    disabled_at: Option<Instant>,
+    message: String,
+}
+
+impl Default for RecallState {
+    fn default() -> Self {
+        Self {
+            session: None,
+            last_scene: None,
+            last_sent: None,
+            disabled_at: None,
+            message: "Off — playback preview only".into(),
+        }
+    }
+}
+
+impl RecallState {
+    fn disable(&mut self, message: &str, now: Instant) {
+        self.session = None;
+        self.disabled_at = Some(now);
+        self.message = message.into();
+    }
+
+    fn blocks_marker(&self, scene: u16, received_at: Instant) -> bool {
+        self.session.is_some()
+            || self.disabled_at.is_some_and(|at| received_at <= at)
+            // Protect a delayed desk echo after switching recall off.
+            || self.last_sent.is_some_and(|(sent_scene, at)|
+                sent_scene == scene && received_at >= at
+                && received_at.duration_since(at) < Duration::from_secs(2))
+    }
+
+    fn candidate(
+        &self,
+        feedback: &reaper_osc::PlaybackFeedback,
+        names: &[String],
+        now: Instant,
+    ) -> Result<Option<u16>, String> {
+        if self.session.is_none()
+            || feedback.preview_status() != "playing"
+            || !feedback.settled(now)
+        {
+            return Ok(None);
+        }
+        let scene = scene_number_for_marker(names, feedback.marker_name.as_deref().unwrap_or(""))?;
+        Ok(scene.filter(|scene| Some(*scene) != self.last_scene))
+    }
+}
+
+impl PlaybackRecall {
+    fn new() -> Self {
+        Self {
+            state: Mutex::new(RecallState::default()),
+        }
+    }
+    fn suspend_for_edit(&self) -> std::sync::MutexGuard<'_, RecallState> {
+        let mut state = self.state.lock().unwrap();
+        state.disable(
+            "Off — settings or scene list changed; re-enable playback recall",
+            Instant::now(),
+        );
+        state
+    }
+}
+
+#[tauri::command]
+fn set_playback_recall(
+    enabled: bool,
+    recall: tauri::State<'_, PlaybackRecall>,
+    bridge: tauri::State<'_, bridge::Bridge>,
+    feedback: tauri::State<'_, reaper_osc::ReaperOscFeedback>,
+    scenes: tauri::State<'_, SceneNames>,
+    selection: tauri::State<'_, SceneListSelection>,
+) -> Result<(), String> {
+    let mut state = recall
+        .state
+        .lock()
+        .map_err(|_| "Playback recall unavailable")?;
+    if !enabled {
+        state.disable("Off — playback preview only", Instant::now());
+        return Ok(());
+    }
+    if state.session.is_some() {
+        return Ok(());
+    }
+    if selection
+        .load()
+        .map_err(|error| error.to_string())?
+        .is_none()
+    {
+        return Err("Load a scene list before enabling playback recall".into());
+    }
+    let names = scenes.names.read().map_err(|_| "Scene names unavailable")?;
+    let mut unique = std::collections::HashSet::new();
+    if names
+        .iter()
+        .take(SCENE_SLOT_COUNT)
+        .filter(|name| !name.is_empty())
+        .any(|name| !unique.insert(name))
+    {
+        return Err("Playback recall requires unique scene names".into());
+    }
+    let observed = feedback.playback()?;
+    if observed.preview_status() == "unknown" || observed.marker_name.is_none() {
+        return Err(
+            "Refresh all surfaces in REAPER and wait for transport and marker feedback".into(),
+        );
+    }
+    state.session = Some(bridge.send_session()?);
+    state.last_scene = None;
+    state.message = "On — waiting for mapped playback; marker creation is suspended".into();
+    Ok(())
+}
+
+fn process_playback_recall(
+    state: &mut RecallState,
+    bridge: &bridge::Bridge,
+    feedback: &reaper_osc::PlaybackFeedback,
+    names: &[String],
+    now: Instant,
+) {
+    let Some(session) = state.session else {
+        return;
+    };
+    if bridge.send_session().ok() != Some(session) {
+        state.disable(
+            "Off — desk connection changed; re-enable playback recall",
+            now,
+        );
+        return;
+    }
+    // While playing REAPER emits /time continuously. A silent feed must not
+    // leave a stale playing/marker snapshot capable of sending.
+    if feedback.preview_status() == "playing"
+        && !feedback
+            .received_at
+            .is_some_and(|at| now.saturating_duration_since(at) < Duration::from_secs(2))
+    {
+        state.disable(
+            "Off — REAPER feedback lost; refresh and re-enable recall",
+            now,
+        );
+        return;
+    }
+    match state.candidate(feedback, names, now) {
+        Ok(Some(scene)) => match bridge.send_scene(session, scene) {
+            Ok(()) => {
+                state.last_scene = Some(scene);
+                state.last_sent = Some((scene, now));
+                state.message = format!(
+                    "Scene {scene}: {} — command sent (desk recall unconfirmed)",
+                    feedback.marker_name.as_deref().unwrap_or("")
+                );
+            }
+            Err(error) => state.disable(&format!("Off — {error}; re-enable recall"), now),
+        },
+        Err(error) => state.disable(&format!("Off — {error}"), now),
+        Ok(None) => {}
+    }
+}
+
+// This worker lives in Rust, so hiding the window cannot stop scene recall.
+fn start_playback_recall(app: tauri::AppHandle) {
+    std::thread::spawn(move || loop {
+        {
+            let recall = app.state::<PlaybackRecall>();
+            let mut state = recall.state.lock().unwrap();
+            if state.session.is_some() {
+                let bridge = app.state::<bridge::Bridge>();
+                if let Ok(feedback) = app.state::<reaper_osc::ReaperOscFeedback>().playback() {
+                    let scenes = app.state::<SceneNames>();
+                    let names = scenes.names.read().unwrap();
+                    process_playback_recall(&mut state, &bridge, &feedback, &names, Instant::now());
+                }
+            }
+        }
+        std::thread::sleep(Duration::from_millis(20));
+    });
+}
+
+#[derive(serde::Serialize)]
+struct PlaybackPreview {
+    feedback: reaper_osc::PlaybackFeedback,
+    transport: String,
+    scene_number: Option<u16>,
+    message: String,
+    recall_enabled: bool,
+    recall_message: String,
+}
+
+#[tauri::command]
+fn get_playback_preview(
+    recall: tauri::State<'_, PlaybackRecall>,
+    feedback: tauri::State<'_, reaper_osc::ReaperOscFeedback>,
+    scenes: tauri::State<'_, SceneNames>,
+    selection: tauri::State<'_, SceneListSelection>,
+) -> Result<PlaybackPreview, String> {
+    let state = recall
+        .state
+        .lock()
+        .map_err(|_| "Playback recall unavailable")?;
+    let feedback = feedback.playback()?;
+    let transport = feedback.preview_status().to_string();
+    let names = scenes
+        .names
+        .read()
+        .map_err(|_| "Scene names unavailable".to_string())?;
+    let mapping = if selection
+        .load()
+        .map_err(|error| error.to_string())?
+        .is_none()
+    {
+        Err("Load a scene list to match markers".to_string())
+    } else {
+        scene_number_for_marker(&names, feedback.marker_name.as_deref().unwrap_or(""))
+    };
+    let scene_number = mapping.as_ref().ok().copied().flatten();
+    let message = match transport.as_str() {
+        "recording" => "Recording — no playback recall".to_string(),
+        "paused" => "Paused — no playback recall".to_string(),
+        "stopped" => "Stopped — no playback recall".to_string(),
+        "unknown" => "Waiting for complete transport feedback".to_string(),
+        _ => match mapping {
+            Err(error) => error,
+            Ok(Some(number)) => format!(
+                "{} scene {number}: {}",
+                if state.session.is_some() {
+                    "Mapped"
+                } else {
+                    "Would recall"
+                },
+                feedback.marker_name.as_deref().unwrap_or("")
+            ),
+            Ok(None) if feedback.marker_name.is_none() => {
+                "Waiting for current marker feedback".to_string()
+            }
+            Ok(None) => "No scene matches the current marker name".to_string(),
+        },
+    };
+    Ok(PlaybackPreview {
+        feedback,
+        transport,
+        scene_number,
+        message,
+        recall_enabled: state.session.is_some(),
+        recall_message: state.message.clone(),
+    })
+}
+
 fn decode_scene_number(bank_number: u8, program: u8) -> Option<u16> {
     let scene_number = u16::from(bank_number) * 128 + u16::from(program) + 1;
     (usize::from(scene_number) <= SCENE_SLOT_COUNT).then_some(scene_number)
@@ -584,8 +858,13 @@ fn save_reaper_osc_settings(
     host: String,
     port: u16,
     settings: tauri::State<'_, ReaperOscSettings>,
+    recall: tauri::State<'_, PlaybackRecall>,
+    feedback: tauri::State<'_, reaper_osc::ReaperOscFeedback>,
 ) -> Result<(), String> {
-    settings.save(host, port)
+    let _recall_edit = recall.suspend_for_edit();
+    settings.save(host, port)?;
+    feedback.reset_target(&settings.get()?.0);
+    Ok(())
 }
 
 #[tauri::command]
@@ -613,7 +892,11 @@ fn get_scene_names_count(scene_names: tauri::State<'_, SceneNames>) -> Result<us
 }
 
 #[tauri::command]
-fn reload_scene_names(scene_names: tauri::State<'_, SceneNames>) -> Result<usize, String> {
+fn reload_scene_names(
+    scene_names: tauri::State<'_, SceneNames>,
+    recall: tauri::State<'_, PlaybackRecall>,
+) -> Result<usize, String> {
+    let _recall_edit = recall.suspend_for_edit();
     scene_names.reload()
 }
 
@@ -629,7 +912,9 @@ fn save_scene_names(
     names: Vec<String>,
     scene_names: tauri::State<'_, SceneNames>,
     scene_list_selection: tauri::State<'_, SceneListSelection>,
+    recall: tauri::State<'_, PlaybackRecall>,
 ) -> Result<usize, String> {
+    let _recall_edit = recall.suspend_for_edit();
     let count = scene_names.save(names)?;
     if let Some(scene_list_name) = scene_list_selection
         .load()
@@ -653,7 +938,9 @@ fn import_scene_list(
     source_path: String,
     scene_names: tauri::State<'_, SceneNames>,
     scene_list_selection: tauri::State<'_, SceneListSelection>,
+    recall: tauri::State<'_, PlaybackRecall>,
 ) -> Result<(String, usize), String> {
+    let _recall_edit = recall.suspend_for_edit();
     let (scene_list_name, count) = scene_names.import_as_scene_list(Path::new(&source_path))?;
     scene_list_selection
         .save(&scene_list_name)
@@ -695,7 +982,9 @@ fn save_scene_list_as(
     names: Option<Vec<String>>,
     scene_names: tauri::State<'_, SceneNames>,
     scene_list_selection: tauri::State<'_, SceneListSelection>,
+    recall: tauri::State<'_, PlaybackRecall>,
 ) -> Result<String, String> {
+    let _recall_edit = recall.suspend_for_edit();
     let scene_list_name = scene_names.save_as_scene_list(&name, names)?;
     scene_names.load_scene_list(&scene_list_name)?;
     scene_list_selection
@@ -709,7 +998,9 @@ fn create_scene_list(
     name: String,
     scene_names: tauri::State<'_, SceneNames>,
     scene_list_selection: tauri::State<'_, SceneListSelection>,
+    recall: tauri::State<'_, PlaybackRecall>,
 ) -> Result<(String, usize), String> {
+    let _recall_edit = recall.suspend_for_edit();
     let scene_list_name = scene_names.create_scene_list(&name)?;
     let count = scene_names.load_scene_list(&scene_list_name)?;
     scene_list_selection
@@ -723,7 +1014,9 @@ fn load_scene_list(
     scene_list_name: String,
     scene_names: tauri::State<'_, SceneNames>,
     scene_list_selection: tauri::State<'_, SceneListSelection>,
+    recall: tauri::State<'_, PlaybackRecall>,
 ) -> Result<usize, String> {
+    let _recall_edit = recall.suspend_for_edit();
     let count = scene_names.load_scene_list(&scene_list_name)?;
     scene_list_selection
         .save(&scene_list_name)
@@ -982,6 +1275,15 @@ fn start_bridge(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> 
             ),
         );
 
+        let playback_recall = app.state::<PlaybackRecall>();
+        let playback_state = playback_recall.state.lock().unwrap();
+        if playback_state.blocks_marker(scene_number, recall.received_at) {
+            let _ = app.emit(
+                "marker-decision",
+                "Marker creation suspended for playback recall",
+            );
+            return;
+        }
         if should_create_marker(&recent_scene_recall, scene_number, recall.received_at) {
             let decision = match marker_mode
                             .read()
@@ -1018,7 +1320,167 @@ fn start_bridge(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> 
 
 #[cfg(test)]
 mod tests {
-    use super::{decode_scene_number, sanitize_scene_list_name};
+    use super::{
+        bridge, decode_scene_number, process_playback_recall, reaper_osc, sanitize_scene_list_name,
+        scene_number_for_marker, Duration, Instant, RecallState,
+    };
+
+    #[test]
+    fn playback_recall_simulation_covers_dedup_recording_loops_and_disconnect() {
+        use std::{io::Read, net::TcpListener, path::PathBuf, thread};
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let bridge = bridge::Bridge::new(
+            bridge::Config {
+                transport: "tcp".into(),
+                host: "127.0.0.1".into(),
+                port: listener.local_addr().unwrap().port(),
+                channel: 12,
+                midi_input: String::new(),
+            },
+            PathBuf::new(),
+            None,
+            |_| {},
+        );
+        let deadline = Instant::now() + Duration::from_secs(3);
+        let session = loop {
+            if let Ok(session) = bridge.send_session() {
+                break session;
+            }
+            assert!(Instant::now() < deadline);
+            thread::sleep(Duration::from_millis(10));
+        };
+        let (mut socket, _) = listener.accept().unwrap();
+        socket
+            .set_read_timeout(Some(Duration::from_millis(100)))
+            .unwrap();
+        let names = vec!["Song A".into(), "".into(), "Song B".into()];
+        let now = Instant::now();
+        let mut feedback = reaper_osc::PlaybackFeedback {
+            playing: Some(true),
+            paused: Some(false),
+            stopped: Some(false),
+            recording: Some(false),
+            marker_name: Some("Song A".into()),
+            marker_number: Some("99".into()),
+            position: Some(5.0),
+            changed_at: Some(now - Duration::from_millis(200)),
+            received_at: Some(now),
+            ..Default::default()
+        };
+        let mut state = RecallState::default();
+        process_playback_recall(&mut state, &bridge, &feedback, &names, now);
+        assert_eq!(state.last_scene, None, "off by default");
+
+        state.session = Some(session);
+        process_playback_recall(&mut state, &bridge, &feedback, &names, now);
+        let mut bytes = [0; 5];
+        socket.read_exact(&mut bytes).unwrap();
+        assert_eq!(
+            bytes,
+            [0xbb, 0, 0, 0xcb, 0],
+            "starting mid-song uses the name, not marker 99"
+        );
+
+        feedback.playing = Some(false);
+        feedback.stopped = Some(true);
+        process_playback_recall(&mut state, &bridge, &feedback, &names, now);
+        feedback.playing = Some(true);
+        feedback.stopped = Some(false);
+        process_playback_recall(&mut state, &bridge, &feedback, &names, now);
+        assert_eq!(state.last_scene, Some(1), "Stop/Play retains scene");
+
+        feedback.paused = Some(true);
+        process_playback_recall(&mut state, &bridge, &feedback, &names, now);
+        feedback.paused = Some(false);
+        feedback.position = Some(2.0); // same-song loop
+        process_playback_recall(&mut state, &bridge, &feedback, &names, now);
+        let error = socket.read(&mut bytes).unwrap_err();
+        assert!(
+            matches!(
+                error.kind(),
+                std::io::ErrorKind::WouldBlock | std::io::ErrorKind::TimedOut
+            ),
+            "Stop/Play, pause/resume and same-song loops must not repeat recalls"
+        );
+
+        feedback.marker_name = Some("Song B".into());
+        feedback.recording = Some(true);
+        process_playback_recall(&mut state, &bridge, &feedback, &names, now);
+        assert_eq!(state.last_scene, Some(1), "recording must not send");
+        assert!(socket.read(&mut bytes).is_err());
+        feedback.recording = Some(false);
+        feedback.changed_at = Some(now);
+        process_playback_recall(&mut state, &bridge, &feedback, &names, now);
+        assert_eq!(
+            state.last_scene,
+            Some(1),
+            "separate feedback messages must settle"
+        );
+        feedback.changed_at = Some(now - Duration::from_millis(200));
+        process_playback_recall(&mut state, &bridge, &feedback, &names, now);
+        socket.read_exact(&mut bytes).unwrap();
+        assert_eq!(bytes, [0xbb, 0, 0, 0xcb, 2], "blank slot 2 is preserved");
+
+        feedback.marker_name = Some("Song A".into()); // cross-song loop/seek destination
+        process_playback_recall(&mut state, &bridge, &feedback, &names, now);
+        socket.read_exact(&mut bytes).unwrap();
+        assert_eq!(bytes, [0xbb, 0, 0, 0xcb, 0]);
+        feedback.marker_name = Some("Unknown".into());
+        process_playback_recall(&mut state, &bridge, &feedback, &names, now);
+        assert!(socket.read(&mut bytes).is_err());
+
+        assert!(
+            state.blocks_marker(500, now),
+            "all incoming recalls blocked while enabled, even Always mode"
+        );
+        state.disable("Off", now);
+        assert!(
+            state.blocks_marker(1, now + Duration::from_millis(100)),
+            "late sent-scene echo blocked"
+        );
+        assert!(
+            state.blocks_marker(3, now - Duration::from_millis(1)),
+            "queued recalls from before disable blocked"
+        );
+        assert!(
+            !state.blocks_marker(3, now + Duration::from_millis(100)),
+            "fresh desk recalls allowed when off"
+        );
+
+        state.session = Some(session);
+        bridge.reconnect();
+        process_playback_recall(&mut state, &bridge, &feedback, &names, now);
+        assert!(state.session.is_none(), "connection change disarms");
+        let deadline = Instant::now() + Duration::from_secs(3);
+        while bridge.send_session().is_err() {
+            assert!(Instant::now() < deadline);
+            thread::sleep(Duration::from_millis(10));
+        }
+        let (mut recovered, _) = listener.accept().unwrap();
+        recovered
+            .set_read_timeout(Some(Duration::from_millis(100)))
+            .unwrap();
+        feedback.marker_name = Some("Song B".into());
+        process_playback_recall(&mut state, &bridge, &feedback, &names, now);
+        assert!(
+            recovered.read(&mut bytes).is_err(),
+            "reconnect must not rearm or replay"
+        );
+        state.session = Some(bridge.send_session().unwrap());
+        feedback.received_at = Some(now - Duration::from_secs(3));
+        process_playback_recall(&mut state, &bridge, &feedback, &names, now);
+        assert!(state.session.is_none(), "silent REAPER feedback disarms");
+        bridge.listen(false);
+    }
+
+    #[test]
+    fn playback_mapping_preserves_slots_and_rejects_ambiguity() {
+        let names = vec!["Song A".into(), "".into(), "Song B".into()];
+        assert_eq!(scene_number_for_marker(&names, "Song B"), Ok(Some(3)));
+        assert_eq!(scene_number_for_marker(&names, "song b"), Ok(None));
+        assert_eq!(scene_number_for_marker(&names, ""), Ok(None));
+        assert!(scene_number_for_marker(&["Song A".into(), "Song A".into()], "Song A").is_err());
+    }
 
     #[test]
     fn decodes_banked_dlive_scene_numbers() {
@@ -1089,7 +1551,9 @@ pub fn run() {
             app.manage(SceneListSelection {
                 path: scene_list_selection,
             });
+            app.manage(PlaybackRecall::new());
             start_bridge(app)?;
+            start_playback_recall(app.handle().clone());
             setup_menu_bar(app)?;
             Ok(())
         })
@@ -1127,6 +1591,8 @@ pub fn run() {
             load_scene_list,
             rename_scene_list,
             delete_scene_list,
+            set_playback_recall,
+            get_playback_preview,
             get_bridge_status,
             save_bridge_settings,
             set_bridge_listening,

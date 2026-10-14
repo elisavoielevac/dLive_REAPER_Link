@@ -2,7 +2,7 @@ use rosc::{decoder, encoder, OscMessage, OscPacket, OscType};
 use std::error::Error;
 use std::fmt;
 use std::io;
-use std::net::{SocketAddr, UdpSocket};
+use std::net::{IpAddr, SocketAddr, UdpSocket};
 use std::sync::{Arc, Condvar, Mutex, RwLock};
 use std::thread;
 use std::time::{Duration, Instant};
@@ -37,10 +37,146 @@ pub struct ReaperOscClient {
     config: ReaperOscConfig,
 }
 
+// Latest observed feedback only: separate OSC messages are not an atomic snapshot.
+#[derive(Debug, Clone, Default, serde::Serialize)]
+pub struct PlaybackFeedback {
+    pub playing: Option<bool>,
+    pub paused: Option<bool>,
+    pub stopped: Option<bool>,
+    pub recording: Option<bool>,
+    pub marker_name: Option<String>,
+    pub marker_number: Option<String>,
+    pub marker_time: Option<f32>,
+    pub position: Option<f32>,
+    #[serde(skip)]
+    pub(crate) changed_at: Option<Instant>,
+    #[serde(skip)]
+    pub(crate) received_at: Option<Instant>,
+}
+
+impl PlaybackFeedback {
+    fn update(&mut self, packet: &OscPacket) {
+        self.update_at(packet, Instant::now());
+    }
+
+    fn update_at(&mut self, packet: &OscPacket, now: Instant) {
+        match packet {
+            OscPacket::Bundle(bundle) => {
+                for packet in &bundle.content {
+                    self.update_at(packet, now);
+                }
+            }
+            OscPacket::Message(message) => {
+                let value = message.args.first();
+                let relevant = matches!(
+                    message.addr.as_str(),
+                    "/play"
+                        | "/pause"
+                        | "/stop"
+                        | "/record"
+                        | "/lastmarker/name"
+                        | "/lastmarker/number/str"
+                        | "/lastmarker/time"
+                );
+                if relevant {
+                    self.changed_at = Some(now);
+                }
+                if relevant || message.addr == "/time" {
+                    self.received_at = Some(now);
+                }
+                match message.addr.as_str() {
+                    "/play" => {
+                        if let Some(v) = osc_bool(value) {
+                            self.playing = Some(v);
+                        }
+                    }
+                    "/pause" => {
+                        if let Some(v) = osc_bool(value) {
+                            self.paused = Some(v);
+                        }
+                    }
+                    "/stop" => {
+                        if let Some(v) = osc_bool(value) {
+                            self.stopped = Some(v);
+                        }
+                    }
+                    "/record" => {
+                        if let Some(v) = osc_bool(value) {
+                            self.recording = Some(v);
+                        }
+                    }
+                    "/lastmarker/name" => {
+                        if let Some(OscType::String(v)) = value {
+                            self.marker_name = Some(v.clone());
+                        }
+                    }
+                    "/lastmarker/number/str" => {
+                        if let Some(OscType::String(v)) = value {
+                            self.marker_number = Some(v.clone());
+                        }
+                    }
+                    "/lastmarker/time" | "/time" => {
+                        if let Some(OscType::Float(v)) = value {
+                            if v.is_finite() {
+                                if message.addr == "/time" {
+                                    if let Some(previous) = self.position {
+                                        if *v < previous || (*v - previous).abs() > 0.5 {
+                                            self.changed_at = Some(now);
+                                        }
+                                    }
+                                    self.position = Some(*v);
+                                } else {
+                                    self.marker_time = Some(*v);
+                                }
+                            }
+                        }
+                    }
+                    _ => {}
+                }
+            }
+        }
+    }
+
+    pub(crate) fn settled(&self, now: Instant) -> bool {
+        self.changed_at
+            .is_some_and(|at| now.saturating_duration_since(at) >= Duration::from_millis(100))
+    }
+
+    pub fn preview_status(&self) -> &'static str {
+        if self.recording == Some(true) {
+            return "recording";
+        }
+        if self.paused == Some(true) {
+            return "paused";
+        }
+        if self.stopped == Some(true) || self.playing == Some(false) {
+            return "stopped";
+        }
+        if self.playing == Some(true)
+            && self.recording == Some(false)
+            && self.paused == Some(false)
+            && self.stopped == Some(false)
+        {
+            return "playing";
+        }
+        "unknown"
+    }
+}
+
+fn osc_bool(value: Option<&OscType>) -> Option<bool> {
+    match value {
+        Some(OscType::Bool(v)) => Some(*v),
+        Some(OscType::Int(v)) => Some(*v != 0),
+        Some(OscType::Float(v)) if v.is_finite() => Some(*v != 0.0),
+        _ => None,
+    }
+}
+
 #[derive(Clone)]
 pub struct ReaperOscFeedback {
     socket: Arc<UdpSocket>,
-    recording: Arc<RwLock<Option<bool>>>,
+    playback: Arc<RwLock<PlaybackFeedback>>,
+    expected_host: Arc<RwLock<String>>,
     marker_feedback: Arc<(Mutex<(u64, String)>, Condvar)>,
     marker_request: Arc<Mutex<()>>,
 }
@@ -57,25 +193,30 @@ impl ReaperOscFeedback {
             .set_read_timeout(Some(Duration::from_millis(250)))
             .map_err(ReaperOscError::ConfigureSocket)?;
 
-        let recording = Arc::new(RwLock::new(None));
+        let expected_host = Arc::new(RwLock::new(config.host.clone()));
+        let listener_host = Arc::clone(&expected_host);
+        let playback = Arc::new(RwLock::new(PlaybackFeedback::default()));
         let marker_feedback = Arc::new((Mutex::new((0, String::new())), Condvar::new()));
         let listener_socket = Arc::clone(&socket);
-        let listener_recording = Arc::clone(&recording);
+        let listener_playback = Arc::clone(&playback);
         let listener_marker_feedback = Arc::clone(&marker_feedback);
 
         thread::spawn(move || loop {
             let mut buffer = [0; 8192];
-            let Ok((length, _sender)) = listener_socket.recv_from(&mut buffer) else {
+            let Ok((length, sender)) = listener_socket.recv_from(&mut buffer) else {
                 continue;
             };
+            // A target change cannot leave feedback from the old REAPER driving recalls.
+            let host = listener_host.read().unwrap();
+            if host.parse::<IpAddr>().ok() != Some(sender.ip()) {
+                continue;
+            }
             let Ok((_, packet)) = decoder::decode_udp(&buffer[..length]) else {
                 continue;
             };
 
-            if let Some(recording) = recording_from_packet(&packet) {
-                if let Ok(mut state) = listener_recording.write() {
-                    *state = Some(recording);
-                }
+            if let Ok(mut state) = listener_playback.write() {
+                state.update(&packet);
             }
             if let Some(marker_number) = last_marker_number_from_packet(&packet) {
                 let (lock, changed) = &*listener_marker_feedback;
@@ -89,14 +230,28 @@ impl ReaperOscFeedback {
 
         Ok(Self {
             socket,
-            recording,
+            playback,
+            expected_host,
             marker_feedback,
             marker_request: Arc::new(Mutex::new(())),
         })
     }
 
+    pub fn reset_target(&self, host: &str) {
+        let mut target = self.expected_host.write().unwrap();
+        *target = host.to_string();
+        *self.playback.write().unwrap() = PlaybackFeedback::default();
+    }
+
+    pub fn playback(&self) -> Result<PlaybackFeedback, String> {
+        self.playback
+            .read()
+            .map(|state| state.clone())
+            .map_err(|_| "REAPER feedback is unavailable".to_string())
+    }
+
     pub fn recording(&self) -> Option<bool> {
-        self.recording.read().ok().and_then(|state| *state)
+        self.playback.read().ok().and_then(|state| state.recording)
     }
 }
 
@@ -273,15 +428,99 @@ fn last_marker_number_from_message(message: &OscMessage) -> Option<String> {
     }
 }
 
-fn recording_from_packet(packet: &OscPacket) -> Option<bool> {
-    match packet {
-        OscPacket::Message(message) if message.addr == "/record" => match message.args.first() {
-            Some(OscType::Bool(value)) => Some(*value),
-            Some(OscType::Int(value)) => Some(*value != 0),
-            Some(OscType::Float(value)) => Some(*value != 0.0),
-            _ => None,
-        },
-        OscPacket::Bundle(bundle) => bundle.content.iter().find_map(recording_from_packet),
-        _ => None,
+#[cfg(test)]
+mod playback_tests {
+    use super::*;
+
+    fn message(addr: &str, value: OscType) -> OscPacket {
+        OscPacket::Message(OscMessage {
+            addr: addr.into(),
+            args: vec![value],
+        })
+    }
+
+    #[test]
+    fn listener_uses_configured_reaper_host_and_clears_target_state() {
+        let feedback = ReaperOscFeedback::start(&ReaperOscConfig {
+            host: "192.0.2.1".into(),
+            feedback_port: 0,
+            ..Default::default()
+        })
+        .unwrap();
+        let address = SocketAddr::new(
+            "127.0.0.1".parse().unwrap(),
+            feedback.socket.local_addr().unwrap().port(),
+        );
+        let sender = UdpSocket::bind("127.0.0.1:0").unwrap();
+        let packet = encoder::encode(&message(
+            "/lastmarker/name",
+            OscType::String("Song A".into()),
+        ))
+        .unwrap();
+        sender.send_to(&packet, address).unwrap();
+        thread::sleep(Duration::from_millis(100));
+        assert!(
+            feedback.playback().unwrap().marker_name.is_none(),
+            "wrong host ignored"
+        );
+        feedback.reset_target("127.0.0.1");
+        sender.send_to(&packet, address).unwrap();
+        let deadline = Instant::now() + Duration::from_secs(1);
+        while feedback.playback().unwrap().marker_name.is_none() {
+            assert!(Instant::now() < deadline);
+            thread::sleep(Duration::from_millis(10));
+        }
+        assert_eq!(
+            feedback.playback().unwrap().marker_name.as_deref(),
+            Some("Song A")
+        );
+        feedback.reset_target("192.0.2.1");
+        assert!(feedback.playback().unwrap().marker_name.is_none());
+    }
+
+    #[test]
+    fn startup_requires_transport_and_retains_stopped_marker() {
+        let mut state = PlaybackFeedback::default();
+        state.update(&message(
+            "/lastmarker/name",
+            OscType::String("Song A".into()),
+        ));
+        state.update(&message("/play", OscType::Float(1.0)));
+        assert_eq!(state.preview_status(), "unknown");
+        for addr in ["/record", "/pause", "/stop"] {
+            state.update(&message(addr, OscType::Float(0.0)));
+        }
+        assert_eq!(state.preview_status(), "playing");
+        assert_eq!(state.marker_name.as_deref(), Some("Song A"));
+        state.update(&message("/record", OscType::Float(1.0)));
+        assert_eq!(state.preview_status(), "recording");
+    }
+
+    #[test]
+    fn nested_bundle_applies_all_updates_in_order() {
+        let mut state = PlaybackFeedback::default();
+        state.update(&OscPacket::Bundle(rosc::OscBundle {
+            timetag: (0, 1).into(),
+            content: vec![
+                message("/record", OscType::Int(1)),
+                OscPacket::Bundle(rosc::OscBundle {
+                    timetag: (0, 1).into(),
+                    content: vec![
+                        message("/record", OscType::Int(0)),
+                        message("/pause", OscType::Bool(true)),
+                        message("/lastmarker/name", OscType::String("Song B".into())),
+                        message("/lastmarker/number/str", OscType::String("99".into())),
+                        message("/time", OscType::Float(15.0)),
+                    ],
+                }),
+            ],
+        }));
+        assert_eq!(state.recording, Some(false));
+        assert_eq!(state.preview_status(), "paused");
+        assert_eq!(state.marker_name.as_deref(), Some("Song B"));
+        assert_eq!(state.marker_number.as_deref(), Some("99"));
+        assert_eq!(state.position, Some(15.0));
+        state.update(&message("/time", OscType::Float(f32::NAN)));
+        assert_eq!(state.position, Some(15.0));
     }
 }
