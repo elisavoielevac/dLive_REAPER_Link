@@ -802,17 +802,46 @@ fn status_icon(status: &str) -> tauri::image::Image<'static> {
         "error" => [219, 76, 65, 255],
         _ => [143, 143, 147, 255],
     };
-    let mut rgba = vec![0; 18 * 18 * 4];
-    for y in 0..18_i32 {
-        for x in 0..18_i32 {
-            let radius = (x * 2 - 17).pow(2) + (y * 2 - 17).pow(2);
-            if radius <= 144 {
-                let index = ((y * 18 + x) * 4) as usize;
-                rgba[index..index + 4].copy_from_slice(&color);
+    // macOS displays this at 30 × 18 points. Render at 2× with coverage
+    // antialiasing so the connector ring and pins stay clear on Retina screens.
+    const WIDTH: usize = 60;
+    const HEIGHT: usize = 36;
+    const SAMPLES: usize = 4;
+    let pins: [(f64, f64); 6] = [
+        (9.0, 4.8),
+        (5.2, 7.0),
+        (12.8, 7.0),
+        (5.8, 11.0),
+        (12.2, 11.0),
+        (9.0, 13.0),
+    ];
+    let mut rgba = vec![0; WIDTH * HEIGHT * 4];
+    for y in 0..HEIGHT {
+        for x in 0..WIDTH {
+            let mut covered = 0;
+            for sy in 0..SAMPLES {
+                for sx in 0..SAMPLES {
+                    let px = (x as f64 + (sx as f64 + 0.5) / SAMPLES as f64) / 2.0;
+                    let py = (y as f64 + (sy as f64 + 0.5) / SAMPLES as f64) / 2.0;
+                    let radius = (px - 9.0).powi(2) + (py - 9.0).powi(2);
+                    let ring = (5.7_f64.powi(2)..=7.3_f64.powi(2)).contains(&radius);
+                    let pin = pins
+                        .iter()
+                        .any(|&(cx, cy)| (px - cx).powi(2) + (py - cy).powi(2) <= 1.0);
+                    let play = (20.0..=28.5).contains(&px) && (py - 9.0).abs() <= (28.5 - px) * 0.7;
+                    if ring || pin || play {
+                        covered += 1;
+                    }
+                }
+            }
+            if covered > 0 {
+                let index = (y * WIDTH + x) * 4;
+                rgba[index..index + 3].copy_from_slice(&color[..3]);
+                rgba[index + 3] = (covered * 255 / (SAMPLES * SAMPLES)) as u8;
             }
         }
     }
-    tauri::image::Image::new_owned(rgba, 18, 18)
+    tauri::image::Image::new_owned(rgba, WIDTH as u32, HEIGHT as u32)
 }
 fn refresh_menu_bar(app: &tauri::AppHandle) {
     let (Some(bridge), Some(menu)) = (
