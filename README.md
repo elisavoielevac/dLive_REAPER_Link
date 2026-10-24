@@ -78,31 +78,25 @@ The app screenshot uses illustrative addresses. Replace the MixRack IP with your
 
 ## Playback recall
 
-1. Use a separate REAPER test session and the corresponding scene list while validating this feature. A marker named `Song A` must match a scene named `Song A` exactly. Blank scene slots keep their numbers; REAPER marker numbers are never used as desk scene numbers. Duplicate non-empty scene names prevent enabling recall; unmatched or empty marker names cause no recall.
-2. Connect using **Direct MixRack TCP**, with the correct desk base MIDI channel. The Live listener must show **Listening**. MIDI input fallback cannot send scene commands. The desk must accept incoming scene MIDI for playback recall.
-3. Configure REAPER OSC feedback to the app computer on UDP port `49102`, using Default.ReaperOSC. The app consumes `/record`, `/play`, `/pause`, `/stop`, `/time`, and last-marker name/number/time feedback. Feedback is accepted from the configured REAPER OSC host IP. If REAPER runs on another computer, use that computer’s IP as the REAPER OSC host and the app computer’s IP as REAPER’s feedback destination.
-4. In REAPER’s Actions list, run **Control surface: Refresh all surfaces**. Wait for transport and marker feedback to appear in Diagnostics; refresh is manual and its feedback is not instantaneous.
-5. Turn **Live → Playback recall** On. Enabling during playback can immediately recall the current mapped scene. The toggle starts Off at every app launch.
+Playback recall lets REAPER control MixRack scene changes during playback, making it useful for virtual soundcheck. As playback reaches each song marker, the app recalls the scene with the same name from the selected scene list.
 
-While enabled:
+For example, a marker named `Song A` recalls the scene named `Song A`. The scene list determines its desk scene number; REAPER marker numbers do not affect the mapping. Names must match exactly, and blank scene slots keep their original numbers. Unmatched markers cause no recall; duplicate scene names prevent enabling the feature.
 
-- Normal playback recalls the currently reported marker’s matching scene when it differs from the last scene successfully sent in that enabled session.
-- Stop/Play and Pause/Resume keep that remembered scene. They do not recall the same scene again.
-- Same-song loops do not repeat recalls. Seeking or looping into a different mapped song recalls the destination, without sending commands for skipped scenes.
-- Recording sends no scene recalls, even though REAPER also reports Play while recording. Recording does not update the remembered scene; later normal playback recalls the current mapped scene only if it differs.
-- Incoming desk recalls cannot create REAPER markers, including in Always mode. Queued input from before disabling and a brief delayed echo of the last sent scene are also suppressed.
-- Stop Listening, a lost/replaced desk connection, source changes, REAPER target changes, or scene-list edits/reloads turn recall Off. Loss of playback feedback for two seconds while REAPER is reported playing also turns it Off. Re-enable explicitly after recovery; commands are not queued or replayed. Re-enabling starts a new recall session.
-- Hiding the app window leaves playback recall running in Rust.
+Playback recall requires **Direct MixRack TCP**, a listening desk connection, and REAPER OSC transport and marker feedback. Turn it on using **Playback recall** in the menu bar dropdown. It starts **Off** whenever the app launches. Enabling it during playback can immediately recall the current song's scene.
 
-Diagnostics distinguishes the mapped scene from **command sent**. A successful socket write does not confirm that the desk recalled it. These commands target MixRack scene slots; they do not navigate or reposition the Surface cue list.
+While it is on:
 
-## Version and validation
+- Scene changes follow playback, including seeking or looping into another song.
+- Stopping and restarting, pausing and resuming, or looping within the same song does not repeatedly recall the same scene.
+- Recording does not trigger scene recalls, and incoming desk recalls do not create REAPER markers.
+- Lost connections, stale feedback during playback, or changes to connection settings or the scene list turn recall Off. Turn it on again after the connection and settings are ready.
+- Closing settings leaves playback recall running.
 
-Find the app version in Diagnostics and include it in issue reports. See [CHANGELOG.md](CHANGELOG.md) for version history and [TOUR_TEST_NOTES.md](TOUR_TEST_NOTES.md) for the existing test-note format.
+Diagnostics shows the mapped scene and send status. **Command sent** does not confirm that the desk recalled the scene. Playback recall targets MixRack scenes; it does not move the Surface cue list.
 
-Nineteen Rust tests cover TCP framing, scene boundaries and channels, missing-at-start recovery, disconnect/reconnect, Stop/rearm, endpoint changes, settings migration, discarding stale queued recalls, all 500 outgoing scenes on base MIDI channels 1–12, exact simulated-desk bytes, failed writes, playback deduplication, recording exclusion, feedback settling, echo suppression, and REAPER feedback host filtering. Mocked browser checks cover source selection, listening controls, enumeration failure, event subscriptions, and default/minimum light/dark layouts.
+## Version and support
 
-Native localhost scene reception, Start/Stop/Refresh, version display, window close survival, keyboard Quit, and the macOS app build passed. User testing confirmed scene reception with dLive Director and reported the initial window/Command-Tab behavior working. The automated UI tool could not inspect the native tray dropdown. The native playback toggle was also checked with a loopback simulated MixRack: scene-send bytes, echo suppression, and automatic disarming on disconnect passed. User testing confirmed playback-triggered scene recall in dLive Director on 2026-10-14; the Surface cue list did not move, which the user accepted. Director validation is software validation. Physical MixRack reception/sending, MIDI unplug/replug, silent cable-loss detection, and end-to-end hardware recovery remain unverified.
+Find the app version in Diagnostics and include it when reporting an issue, along with your setup and what happened. See [CHANGELOG.md](CHANGELOG.md) for version history and [TOUR_TEST_NOTES.md](TOUR_TEST_NOTES.md) for an issue-report template.
 
 ## Later work
 
