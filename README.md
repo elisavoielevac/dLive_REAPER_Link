@@ -1,14 +1,22 @@
 # dLive REAPER Link
 
-**Current version: v0.3.0-beta.1 — macOS hardware-test build.**
+**First packaged release: v0.3.0-beta.1 — macOS beta.**
 
 Creates REAPER markers from dLive MixRack scene recalls, with optional REAPER playback-to-MixRack scene recall for virtual soundcheck. Choose direct MixRack MIDI-over-TCP or an existing MIDI input exposed by Allen & Heath MIDI Control. Playback recall requires Direct MixRack TCP.
 
+## Download and installation
+
+Download the universal DMG from [Releases](https://github.com/elisavoielevac/dLive_REAPER_Link/releases). Open it, drag **dLive REAPER Link** to **Applications**, eject the image, and launch the Applications copy. The app starts in the menu bar; right-click its icon for **Preferences…** and **Quit**.
+
+The release includes the illustrated PDF manual, an offline installation README, third-party notices, and SHA-256 checksums. The app and DMG are Developer ID-signed and Apple-notarized. The universal app contains Apple Silicon and Intel code. Intel execution and installation on another Mac are unverified. The bundle declares macOS 10.13 as its minimum; older macOS versions have not been tested.
+
+This is a beta: Director and simulated-desk results do not establish physical MixRack/Surface or cable-loss recovery validation. Test on your own setup before a show.
+
 ## User guide
 
-Download the [illustrated PDF user guide](docs/dLive-REAPER-Link-User-Guide.pdf). The screenshots are captured from the real macOS app and REAPER v7.80.
+Download the [illustrated PDF user guide](docs/dLive-REAPER-Link-User-Guide.pdf). The app figures show the current release frontend rendered with simulated example data. The REAPER configuration screenshot was captured in REAPER v7.80. An editable [Markdown manual](docs/USER_MANUAL.md) is also included in the repository.
 
-![Live controls in the real app](docs/screenshots/live.png)
+![Compact Live dropdown with example data](docs/screenshots/live.png)
 
 ## Current features
 
@@ -20,7 +28,7 @@ Download the [illustrated PDF user guide](docs/dLive-REAPER-Link-User-Guide.pdf)
 - App-managed scene lists: edit, create, load, Save As, rename, delete, and `.drlscene` import/export.
 - Rust-owned startup and recovery, independent of the Preferences window. Saved sources start automatically; missing sources wait and retry about every two seconds after a failed attempt.
 - Stop Listening cancels recovery until Start Listening in that session. Reconnect does not override Stop. Refresh displays status without restarting healthy listening.
-- Click the menu bar icon for a fixed-size Live dropdown. Click outside it or press Escape to dismiss it. Scene Lists, Setup, and Diagnostics open in a separate larger settings window with saved size and position.
+- Click the menu bar icon for a compact 320px-wide Live dropdown that grows vertically to fit warnings without scrolling. Click outside it or press Escape to dismiss it. Right-click the icon and choose Preferences… to open Scene Lists, Setup, and Diagnostics in a separate larger settings window with saved size and position.
 - The settings window appears in the Dock and Command-Tab; its red close button hides it while the bridge stays active. Right-click the menu bar icon for status, Start/Stop Listening, Reconnect, Preferences…, and Quit. The app launches in the menu bar; Quit exits.
 
 ## Setup
@@ -62,9 +70,9 @@ If REAPER runs on another computer, this app’s REAPER IP must be that computer
 
 Run **Control surface: Refresh all surfaces** in REAPER’s Actions list and allow a couple of seconds for Diagnostics to show transport and current-marker feedback. Playback recall needs a marker at or before the cursor and a matching scene name. The app must also have a listening Direct MixRack TCP connection before recall can be enabled.
 
-![Setup view in the real app](docs/screenshots/setup.png)
+![Setup view with example data](docs/screenshots/setup.png)
 
-The app screenshot uses Director on localhost. For a physical desk, replace the MixRack IP with its actual IP; the same-computer REAPER address remains 127.0.0.1.
+The app screenshot uses illustrative addresses. Replace the MixRack IP with your desk address; the same-computer REAPER address remains 127.0.0.1.
 
 **Test marker** creates a marker named `REAPER CONNECTION TEST` in the active REAPER session. Use a disposable test session for that check.
 
@@ -106,3 +114,5 @@ Optional independent Surface control for OSC-triggered Go/Next/Previous is defer
 npm install
 npm run tauri dev
 ```
+
+The illustrated manual source is `docs/USER_MANUAL.md`. Rebuild its PDF with `python3 docs/build_user_guide.py` using Python with ReportLab installed.

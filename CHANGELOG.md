@@ -1,16 +1,16 @@
 # Changelog
 
-## Unreleased — 2026-10-24
+## v0.3.0-beta.1 - first packaged release - 2026-10-24
 
-- Move Live into a fixed-size menu bar dropdown with Scene Lists, Setup, and Diagnostics buttons; omit the redundant Live tab.
-- Open those views in a separate larger settings window with its own saved size and position. Dismiss Live on focus loss or Escape; keep the existing context menu on right-click.
-- Launch in the menu bar; closing settings keeps the bridge alive. Live refreshes its scene-list summary when reopened.
+- Package a universal macOS beta with Developer ID signing and Apple notarization, an installer DMG, offline README, updated illustrated user guide, and third-party notices.
+- Move Live into a compact 320px-wide menu bar dropdown. Grow vertically to fit warnings without scrolling; omit dropdown navigation because Preferences is available in the right-click menu.
+- Open Scene Lists, Setup, and Diagnostics in a separate resizable settings window with saved size and position. Launch in the menu bar; closing settings keeps the bridge running.
+- Group settings sections and scene-list actions, remove the repeated list heading, align fields/actions, and label diagnostic values.
+- Include optional playback recall and the REAPER OSC setup guide described below.
 
-Validation: nineteen Rust tests, JavaScript syntax, source whitespace checks, and the macOS app build passed. A user-provided screenshot shows the initial dropdown anchored below the menu bar. Native inspection confirmed the larger settings window, all three settings tabs, resizing, and that closing settings leaves the app process running. Dropdown focus-loss/Escape dismissal and the resize-then-reopen Live check remain manual checks; the UI inspection tool dismisses the popup when selecting the app. Physical hardware validation remains pending.
+Validation: 19 Rust tests, JavaScript syntax, Rust formatting, browser layout checks, and universal macOS build passed. Earlier native settings navigation/resizing/close checks and Director scene-reception/playback-recall checks passed. Current frontend screenshots and browser checks use simulated data. Physical MixRack/Surface, MIDI unplug/replug, silent network-loss timing, hardware recovery, Intel execution, and installation on another Mac remain unverified. Native dropdown dismissal and quit/relaunch state restoration have not been independently verified.
 
-## Unreleased — 2026-10-14
-
-The working app still reports v0.3.0-beta.1; this entry is not a release or version bump.
+## Development work included in the first release — 2026-10-14
 
 - Add a four-page illustrated PDF user guide and real macOS app/REAPER screenshots in the README.
 - Add an expandable REAPER OSC setup guide with exact field names, port directions, another-computer setup, initial refresh, and explicit test-marker labeling.
@@ -23,7 +23,7 @@ The working app still reports v0.3.0-beta.1; this entry is not a release or vers
 
 Validation: nineteen Rust tests and macOS app builds passed. Native loopback testing confirmed the toggle, outgoing scene bytes, echo suppression, and disarming on disconnect. User testing confirmed the playback preview, including recording exclusion, and subsequent playback scene recalls with dLive Director. The Surface cue list did not move, which the user accepted. Physical MixRack/Surface testing remains pending; Director results do not establish hardware validation.
 
-## v0.3.0-beta.1 — 2026-10-13
+## v0.3.0-beta.1 development baseline — 2026-10-13
 
 - Add direct plain MixRack TCP reception alongside selectable MIDI input fallback.
 - Decode split/coalesced MIDI streams and running status, with configurable desk MIDI channel.
