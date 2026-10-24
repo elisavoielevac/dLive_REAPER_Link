@@ -47,3 +47,7 @@ Report version, macOS/Mac model, source/IP/port/channel, marker mode,
 playback recall state, exact names/slots, transport state, and reproduction steps.
 
 Third-party licenses and source links are included in THIRD_PARTY_NOTICES.txt.
+
+LICENSE
+Copyright (c) 2026 Éli Savoie-Levac. Distributed under the MIT License;
+see the included LICENSE file. Dependencies retain their respective licenses.

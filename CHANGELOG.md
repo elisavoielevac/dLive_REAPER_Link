@@ -2,6 +2,8 @@
 
 ## v0.3.0-beta.1 - first packaged release - 2026-10-24
 
+Release preparation update: add the MIT license and a reproducible signed build command that remaps local home-folder paths out of the distributed executable. Re-sign, notarize, and verify the updated installer; application behavior is unchanged.
+
 - Package a universal macOS beta with Developer ID signing and Apple notarization, an installer DMG, offline README, updated illustrated user guide, and third-party notices.
 - Move Live into a compact 320px-wide menu bar dropdown. Grow vertically to fit warnings without scrolling; omit dropdown navigation because Preferences is available in the right-click menu.
 - Open Scene Lists, Setup, and Diagnostics in a separate resizable settings window with saved size and position. Launch in the menu bar; closing settings keeps the bridge running.

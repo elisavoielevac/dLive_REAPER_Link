@@ -108,6 +108,10 @@ Native localhost scene reception, Start/Stop/Refresh, version display, window cl
 
 Optional independent Surface control for OSC-triggered Go/Next/Previous is deferred. Surface cue recall IDs must never be used as MixRack scene marker numbers. TLS and virtual MIDI output routing are also deferred.
 
+## License
+
+Licensed under the [MIT License](LICENSE), copyright 2026 Éli Savoie-Levac. Third-party dependencies retain their own licenses; see [third-party notices](THIRD_PARTY_NOTICES.txt).
+
 ## Development
 
 ```sh
@@ -116,3 +120,5 @@ npm run tauri dev
 ```
 
 The illustrated manual source is `docs/USER_MANUAL.md`. Rebuild its PDF with `python3 docs/build_user_guide.py` using Python with ReportLab installed.
+
+For signed universal release builds, set `APPLE_SIGNING_IDENTITY` to your Developer ID Application identity and run `python3 scripts/build_release.py`. It remaps local build paths so your home-folder name is not embedded in Rust diagnostic strings.

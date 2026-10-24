@@ -2,6 +2,7 @@
 name = "dlive-reaper-link"
 version = "0.3.0-beta.1"
 description = "dLive scene recall marker bridge for REAPER"
+license = "MIT"
 authors = []
 edition = "2021"
 
