@@ -20,8 +20,8 @@ Download the [illustrated PDF user guide](docs/dLive-REAPER-Link-User-Guide.pdf)
 - App-managed scene lists: edit, create, load, Save As, rename, delete, and `.drlscene` import/export.
 - Rust-owned startup and recovery, independent of the Preferences window. Saved sources start automatically; missing sources wait and retry about every two seconds after a failed attempt.
 - Stop Listening cancels recovery until Start Listening in that session. Reconnect does not override Stop. Refresh displays status without restarting healthy listening.
-- Menu bar status, Start/Stop Listening, Reconnect, Preferences…, and Quit. The open window appears in the Dock and Command-Tab. Clicking the red close button hides it and keeps the bridge alive in the menu bar; Preferences… restores the window, Dock, and Command-Tab. Quit exits.
-- Compact Live, Scene Lists, Setup, and Diagnostics views, with saved window size and position.
+- Click the menu bar icon for a fixed-size Live dropdown. Click outside it or press Escape to dismiss it. Scene Lists, Setup, and Diagnostics open in a separate larger settings window with saved size and position.
+- The settings window appears in the Dock and Command-Tab; its red close button hides it while the bridge stays active. Right-click the menu bar icon for status, Start/Stop Listening, Reconnect, Preferences…, and Quit. The app launches in the menu bar; Quit exits.
 
 ## Setup
 

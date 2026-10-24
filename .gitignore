@@ -26,3 +26,8 @@ src-tauri/target
 *.njsproj
 *.sln
 *.sw?
+
+# Local assistant instructions and continuity
+/AGENTS.md
+/PROJECT_STATUS.md
+/PROJECT_HANDOFF.md

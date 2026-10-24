@@ -964,3 +964,22 @@ input::placeholder {
     min-height: 38px;
   }
 }
+
+/* Live is a fixed menu bar dropdown; only the separate settings window resizes. */
+#tab-live,
+.settings-window #view-live {
+  display: none;
+}
+
+.live-window {
+  overflow: hidden;
+}
+
+.live-window .container {
+  height: 100vh;
+  overflow-y: auto;
+}
+
+.live-window #playback-recall-result {
+  overflow-wrap: anywhere;
+}

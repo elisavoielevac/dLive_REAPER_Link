@@ -1168,10 +1168,67 @@ fn refresh_menu_bar(app: &tauri::AppHandle) {
         let _ = tray.set_tooltip(Some(format!("dLive REAPER Link — {source}: {label}")));
     }
 }
+#[tauri::command]
+fn open_settings(app: tauri::AppHandle, view: String) -> Result<(), String> {
+    if !matches!(view.as_str(), "scene-lists" | "setup" | "diagnostics") {
+        return Err("Unknown settings view".into());
+    }
+    let window = app
+        .get_webview_window("settings")
+        .ok_or("Settings window unavailable")?;
+    if let Some(live) = app.get_webview_window("live") {
+        let _ = live.hide();
+    }
+    #[cfg(target_os = "macos")]
+    app.set_activation_policy(tauri::ActivationPolicy::Regular)
+        .map_err(|e| e.to_string())?;
+    window
+        .emit("open-settings", view)
+        .map_err(|e| e.to_string())?;
+    window.unminimize().map_err(|e| e.to_string())?;
+    window.show().map_err(|e| e.to_string())?;
+    window.set_focus().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn hide_live(app: tauri::AppHandle) {
+    if let Some(live) = app.get_webview_window("live") {
+        let _ = live.hide();
+    }
+}
+
+fn toggle_live(app: &tauri::AppHandle, rect: tauri::Rect) -> tauri::Result<()> {
+    let Some(window) = app.get_webview_window("live") else {
+        return Ok(());
+    };
+    if window.is_visible()? {
+        return window.hide();
+    }
+    // Tray coordinates are physical. Clamp to the tray's monitor, including Retina displays.
+    let position = rect.position.to_physical::<f64>(1.0);
+    let size = rect.size.to_physical::<f64>(1.0);
+    let monitor = app.monitor_from_point(position.x, position.y)?;
+    let scale = monitor.as_ref().map_or(1.0, |m| m.scale_factor());
+    let width = 420.0 * scale;
+    let height = 250.0 * scale;
+    let mut x = position.x + (size.width - width) / 2.0;
+    let mut y = position.y + size.height;
+    if let Some(monitor) = monitor {
+        let area = monitor.work_area();
+        let left = f64::from(area.position.x);
+        let top = f64::from(area.position.y);
+        x = x.clamp(left, (left + f64::from(area.size.width) - width).max(left));
+        y = y.clamp(top, (top + f64::from(area.size.height) - height).max(top));
+    }
+    window.set_position(tauri::PhysicalPosition::new(x as i32, y as i32))?;
+    window.show()?;
+    window.set_focus()
+}
+
 fn setup_menu_bar(app: &mut tauri::App) -> tauri::Result<()> {
     use tauri::{
         menu::{Menu, MenuItem, PredefinedMenuItem},
-        tray::TrayIconBuilder,
+        tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
     };
     let status = MenuItem::with_id(app, "status", "Scene source: Stopped", false, None::<&str>)?;
     let note = MenuItem::with_id(
@@ -1202,7 +1259,20 @@ fn setup_menu_bar(app: &mut tauri::App) -> tauri::Result<()> {
         .icon(status_icon("stopped"))
         .icon_as_template(false)
         .menu(&menu)
-        .show_menu_on_left_click(true)
+        .show_menu_on_left_click(false)
+        .on_tray_icon_event(|tray, event| {
+            if let TrayIconEvent::Click {
+                button: MouseButton::Left,
+                button_state: MouseButtonState::Up,
+                rect,
+                ..
+            } = event
+            {
+                if let Err(error) = toggle_live(tray.app_handle(), rect) {
+                    eprintln!("Could not open Live: {error}");
+                }
+            }
+        })
         .on_menu_event(|app, event| match event.id.as_ref() {
             "toggle" => {
                 let bridge = app.state::<bridge::Bridge>();
@@ -1214,13 +1284,7 @@ fn setup_menu_bar(app: &mut tauri::App) -> tauri::Result<()> {
                 refresh_menu_bar(app);
             }
             "preferences" => {
-                if let Some(window) = app.get_webview_window("main") {
-                    #[cfg(target_os = "macos")]
-                    let _ = app.set_activation_policy(tauri::ActivationPolicy::Regular);
-                    let _ = window.show();
-                    let _ = window.set_focus();
-                    let _ = app.emit("open-preferences", ());
-                }
+                let _ = open_settings(app.clone(), "setup".into());
             }
             "quit" => {
                 app.state::<bridge::Bridge>().listen(false);
@@ -1236,7 +1300,7 @@ fn setup_menu_bar(app: &mut tauri::App) -> tauri::Result<()> {
     });
     refresh_menu_bar(app.handle());
     #[cfg(target_os = "macos")]
-    app.set_activation_policy(tauri::ActivationPolicy::Regular);
+    app.set_activation_policy(tauri::ActivationPolicy::Accessory);
     Ok(())
 }
 
@@ -1523,6 +1587,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(
             tauri_plugin_window_state::Builder::default()
+                .with_denylist(&["live"])
                 .with_state_flags(
                     tauri_plugin_window_state::StateFlags::SIZE
                         | tauri_plugin_window_state::StateFlags::POSITION,
@@ -1558,9 +1623,14 @@ pub fn run() {
             Ok(())
         })
         .on_window_event(|window, event| {
+            if window.label() == "live" {
+                if matches!(event, tauri::WindowEvent::Focused(false)) {
+                    let _ = window.hide();
+                }
+            }
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                 api.prevent_close();
-                if window.hide().is_ok() {
+                if window.hide().is_ok() && window.label() == "settings" {
                     #[cfg(target_os = "macos")]
                     let _ = window
                         .app_handle()
@@ -1569,6 +1639,8 @@ pub fn run() {
             }
         })
         .invoke_handler(tauri::generate_handler![
+            open_settings,
+            hide_live,
             list_midi_inputs,
             get_saved_midi_input,
             save_midi_input,

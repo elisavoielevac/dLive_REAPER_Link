@@ -2,6 +2,9 @@ const { invoke } = window.__TAURI__.core;
 const { open: openFileDialog, save: saveFileDialog } = window.__TAURI__.dialog;
 
 window.addEventListener("DOMContentLoaded", () => {
+  const isLiveWindow = new URLSearchParams(window.location.search).get("view") === "live";
+  document.body.classList.add(isLiveWindow ? "live-window" : "settings-window");
+  const viewNames = ["live", "scene-lists", "setup", "diagnostics"];
   const appViews = [
     {
       button: document.querySelector("#tab-live"),
@@ -22,9 +25,16 @@ window.addEventListener("DOMContentLoaded", () => {
   ];
 
   function showAppView(index, focusTab = false) {
+    if (isLiveWindow && index !== 0) {
+      void invoke("open_settings", { view: viewNames[index] }).catch((error) => {
+        document.querySelector("#playback-recall-result").textContent = `Could not open settings: ${error}`;
+      });
+      return;
+    }
+    if (!isLiveWindow && index === 0) return;
     appViews.forEach((view, viewIndex) => {
       const selected = viewIndex === index;
-      view.button.setAttribute("aria-selected", String(selected));
+      if (!isLiveWindow) view.button.setAttribute("aria-selected", String(selected));
       view.panel.hidden = !selected;
     });
 
@@ -39,11 +49,11 @@ window.addEventListener("DOMContentLoaded", () => {
       let nextIndex = index;
 
       if (event.key === "ArrowRight") {
-        nextIndex = (index + 1) % appViews.length;
+        nextIndex = index === 3 ? 1 : index + 1;
       } else if (event.key === "ArrowLeft") {
-        nextIndex = (index - 1 + appViews.length) % appViews.length;
+        nextIndex = index === 1 ? 3 : index - 1;
       } else if (event.key === "Home") {
-        nextIndex = 0;
+        nextIndex = 1;
       } else if (event.key === "End") {
         nextIndex = appViews.length - 1;
       } else {
@@ -53,6 +63,31 @@ window.addEventListener("DOMContentLoaded", () => {
       event.preventDefault();
       showAppView(nextIndex, true);
     });
+  });
+
+  if (isLiveWindow) {
+    const navigation = document.querySelector(".app-tabs");
+    navigation.setAttribute("role", "group");
+    navigation.setAttribute("aria-label", "Open settings");
+    appViews.slice(1).forEach(({ button }) => {
+      button.setAttribute("role", "button");
+      button.removeAttribute("aria-selected");
+      button.removeAttribute("aria-controls");
+    });
+  }
+  showAppView(isLiveWindow ? 0 : 2);
+  window.addEventListener("keydown", (event) => {
+    if (isLiveWindow && event.key === "Escape") void invoke("hide_live");
+  });
+  // Refresh only the read-only Live summary when returning from settings.
+  window.addEventListener("focus", () => {
+    if (isLiveWindow) {
+      void loadLoadedSceneList();
+      void loadSceneNamesStatus();
+      void loadMarkerMode();
+      void refreshBridgeStatus();
+      void refreshPlaybackPreview();
+    }
   });
 
   const reaperOscHost = document.querySelector("#reaper-osc-host");
@@ -1441,7 +1476,9 @@ window.addEventListener("DOMContentLoaded", () => {
     const subscriptions = [];
 
     try {
-      subscriptions.push(await window.__TAURI__.event.listen("open-preferences", () => showAppView(2)));
+      subscriptions.push(await window.__TAURI__.event.listen("open-settings", (event) => {
+        if (!isLiveWindow) showAppView(viewNames.indexOf(event.payload));
+      }));
       subscriptions.push(await window.__TAURI__.event.listen("bridge-status", () => { void refreshBridgeStatus().catch((error) => { midiLogResult.textContent = `Could not read connection status: ${error}`; }); }));
       subscriptions.push(await window.__TAURI__.event.listen("midi-message", (event) => {
         midiLog.textContent = `${event.payload}\n${midiLog.textContent}`.split("\n").slice(0, 200).join("\n");

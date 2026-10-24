@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased — 2026-10-24
+
+- Move Live into a fixed-size menu bar dropdown with Scene Lists, Setup, and Diagnostics buttons; omit the redundant Live tab.
+- Open those views in a separate larger settings window with its own saved size and position. Dismiss Live on focus loss or Escape; keep the existing context menu on right-click.
+- Launch in the menu bar; closing settings keeps the bridge alive. Live refreshes its scene-list summary when reopened.
+
+Validation: nineteen Rust tests, JavaScript syntax, source whitespace checks, and the macOS app build passed. A user-provided screenshot shows the initial dropdown anchored below the menu bar. Native inspection confirmed the larger settings window, all three settings tabs, resizing, and that closing settings leaves the app process running. Dropdown focus-loss/Escape dismissal and the resize-then-reopen Live check remain manual checks; the UI inspection tool dismisses the popup when selecting the app. Physical hardware validation remains pending.
+
 ## Unreleased — 2026-10-14
 
 The working app still reports v0.3.0-beta.1; this entry is not a release or version bump.
