@@ -1197,6 +1197,16 @@ fn hide_live(app: tauri::AppHandle) {
     }
 }
 
+#[tauri::command]
+fn resize_live(window: tauri::WebviewWindow, height: u32) -> Result<(), String> {
+    if window.label() != "live" {
+        return Err("Only the Live dropdown can resize to its content".into());
+    }
+    window
+        .set_size(tauri::LogicalSize::new(320.0, f64::from(height.max(200))))
+        .map_err(|error| error.to_string())
+}
+
 fn toggle_live(app: &tauri::AppHandle, rect: tauri::Rect) -> tauri::Result<()> {
     let Some(window) = app.get_webview_window("live") else {
         return Ok(());
@@ -1209,8 +1219,8 @@ fn toggle_live(app: &tauri::AppHandle, rect: tauri::Rect) -> tauri::Result<()> {
     let size = rect.size.to_physical::<f64>(1.0);
     let monitor = app.monitor_from_point(position.x, position.y)?;
     let scale = monitor.as_ref().map_or(1.0, |m| m.scale_factor());
-    let width = 420.0 * scale;
-    let height = 250.0 * scale;
+    let width = 320.0 * scale;
+    let height = f64::from(window.outer_size()?.height);
     let mut x = position.x + (size.width - width) / 2.0;
     let mut y = position.y + size.height;
     if let Some(monitor) = monitor {
@@ -1641,6 +1651,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             open_settings,
             hide_live,
+            resize_live,
             list_midi_inputs,
             get_saved_midi_input,
             save_midi_input,

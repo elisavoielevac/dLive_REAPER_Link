@@ -65,17 +65,20 @@ window.addEventListener("DOMContentLoaded", () => {
     });
   });
 
-  if (isLiveWindow) {
-    const navigation = document.querySelector(".app-tabs");
-    navigation.setAttribute("role", "group");
-    navigation.setAttribute("aria-label", "Open settings");
-    appViews.slice(1).forEach(({ button }) => {
-      button.setAttribute("role", "button");
-      button.removeAttribute("aria-selected");
-      button.removeAttribute("aria-controls");
-    });
-  }
   showAppView(isLiveWindow ? 0 : 2);
+  if (isLiveWindow) {
+    let lastHeight = 0;
+    const content = document.querySelector(".container");
+    new ResizeObserver(() => {
+      const height = Math.max(200, Math.ceil(content.getBoundingClientRect().height));
+      if (height === lastHeight) return;
+      lastHeight = height;
+      void invoke("resize_live", { height }).catch((error) => {
+        lastHeight = 0;
+        console.error("Could not resize Live dropdown", error);
+      });
+    }).observe(content);
+  }
   window.addEventListener("keydown", (event) => {
     if (isLiveWindow && event.key === "Escape") void invoke("hide_live");
   });
@@ -335,7 +338,8 @@ window.addEventListener("DOMContentLoaded", () => {
 
   function updateSceneListDisplay() {
     const loadedSceneListLabel = loadedSceneListName || "No scene list loaded";
-    sceneFilePath.textContent = loadedSceneListLabel;
+    sceneFilePath.textContent = "";
+    sceneFilePath.hidden = true;
     sceneEditorHeading.textContent = "Editing: " + loadedSceneListLabel;
     sceneEditorFilePath.textContent =
       loadedSceneListName ? "Loaded Scene List" : "No scene list loaded";
@@ -447,6 +451,7 @@ window.addEventListener("DOMContentLoaded", () => {
       sceneListFilePath = await invoke("get_scene_file_path");
       updateSceneListDisplay();
     } catch (error) {
+      sceneFilePath.hidden = false;
       sceneFilePath.textContent = `Could not load scene list location: ${error}`;
       sceneFileLocation.textContent = "";
       sceneEditorFilePath.textContent = "Could not load scene list location";
@@ -786,6 +791,7 @@ window.addEventListener("DOMContentLoaded", () => {
         const remove = document.createElement("button");
         remove.type = "button";
         remove.textContent = "Delete";
+        remove.className = "button-destructive";
         remove.dataset.sceneListAction = "delete";
         remove.dataset.sceneListName = sceneListName;
         remove.disabled = sceneListName === loadedSceneListName;

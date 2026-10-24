@@ -72,18 +72,22 @@
             <button id="list-midi-inputs" type="button">Refresh</button>
           </div>
           <div class="setup-row"><label for="bridge-channel">Desk MIDI channel</label><input id="bridge-channel" type="number" min="1" max="12" value="12" /></div>
-          <div class="scene-backup-actions"><button id="save-bridge-settings" type="button">Save source</button><button id="reconnect-bridge" type="button">Reconnect</button></div>
+          <div class="section-actions"><button id="save-bridge-settings" class="button-primary" type="button">Save source</button><button id="reconnect-bridge" type="button">Reconnect</button></div>
           <p id="bridge-settings-result" role="status" aria-live="polite"></p>
           <p id="midi-inputs-result" role="status" aria-live="polite"></p>
         </section>
         <section class="app-section setup-section" aria-labelledby="reaper-connection-heading">
           <h2 id="reaper-connection-heading">REAPER OSC</h2>
-          <div class="setup-row setup-row-osc">
+          <div class="setup-row">
             <label for="reaper-osc-host">REAPER IP</label>
             <input id="reaper-osc-host" type="text" autocomplete="off" spellcheck="false" />
+          </div>
+          <div class="setup-row">
             <label for="reaper-osc-port">Port</label>
             <input id="reaper-osc-port" type="number" min="1" max="65535" inputmode="numeric" />
-            <button id="save-reaper-osc-settings" type="button">Save</button>
+          </div>
+          <div class="section-actions">
+            <button id="save-reaper-osc-settings" class="button-primary" type="button">Save</button>
             <button id="test-reaper-connection" type="button">Test marker</button>
           </div>
           <p class="reaper-osc-note">Commands to REAPER: <span data-reaper-receive-port>49101</span> · Feedback to this app: 49102.</p>
@@ -127,26 +131,25 @@
               <select id="scene-list-backups" disabled>
                 <option value="">No saved lists</option>
               </select>
+            </div>
+            <p id="scene-list-backup-result" role="status" aria-live="polite"></p>
+            <p id="scene-file-path" role="status" aria-live="polite" hidden></p>
+            <p id="scene-file-location" class="scene-file-location" role="status" aria-live="polite" hidden></p>
+
+            <div class="scene-list-actions" role="group" aria-label="List actions">
               <button id="open-scene-editor" type="button" disabled>Edit</button>
               <button id="reload-scene-names" type="button" disabled>Reload</button>
+              <button id="reveal-scene-file" type="button">Reveal in Finder</button>
               <button id="manage-scene-lists" type="button" disabled>Manage</button>
             </div>
 
-            <p id="scene-file-path" class="scene-list-current" role="status" aria-live="polite"></p>
-            <p id="scene-file-location" class="scene-file-location" role="status" aria-live="polite" hidden></p>
-
-            <div class="scene-list-actions">
-              <button id="reveal-scene-file" type="button">Reveal in Finder</button>
-            </div>
-
-            <div class="scene-list-actions">
+            <div class="scene-list-actions" role="group" aria-label="File actions">
               <button id="create-scene-list" type="button">New</button>
               <button id="save-scene-list-backup" type="button" disabled>Save As</button>
               <button id="import-scene-list" type="button">Import</button>
               <button id="export-scene-list" type="button" disabled>Export</button>
             </div>
 
-            <p id="scene-list-backup-result" role="status" aria-live="polite"></p>
             <p id="scene-file-reveal-result" role="status" aria-live="polite"></p>
             <p id="scene-file-reload-result" role="status" aria-live="polite"></p>
             <p id="scene-list-transfer-result" role="status" aria-live="polite"></p>
@@ -176,8 +179,8 @@
           <section class="diagnostics-group" aria-labelledby="midi-diagnostics-heading">
             <h3 id="midi-diagnostics-heading">Scene source</h3>
             <div class="diagnostics-status">
-              <p id="readiness-midi-input">MIDI Input: Not selected</p>
-              <p id="midi-log-result" role="status" aria-live="polite"></p>
+              <div class="diagnostic-field"><span class="diagnostics-label">Source</span><p id="readiness-midi-input">MIDI Input: Not selected</p></div>
+              <div class="diagnostic-field"><span class="diagnostics-label">Connection status</span><p id="midi-log-result" role="status" aria-live="polite"></p></div>
             </div>
             <h4 id="midi-scene-diagnostics-heading">Scene Detail</h4>
             <p id="midi-scene-diagnostics" role="status" aria-live="polite"></p>
@@ -185,13 +188,13 @@
 
           <section class="diagnostics-group" aria-labelledby="reaper-osc-diagnostics-heading">
             <h3 id="reaper-osc-diagnostics-heading">REAPER OSC</h3>
+            <p class="reaper-osc-note">If feedback is incomplete, run “Control surface: Refresh all surfaces” in REAPER.</p>
             <div class="diagnostics-status">
-              <p id="playback-recall-status">Off — playback preview only</p>
-              <p>If feedback is incomplete, run “Control surface: Refresh all surfaces” in REAPER.</p>
-              <p id="playback-feedback">Waiting for REAPER feedback</p>
-              <p id="playback-recall-detail" role="status" aria-live="polite"></p>
-              <p id="playback-preview" role="status" aria-live="polite"></p>
-              <p id="readiness-reaper-osc">REAPER OSC: Check settings</p>
+              <div class="diagnostic-field"><span class="diagnostics-label">Playback recall</span><p id="playback-recall-status">Off — playback preview only</p></div>
+              <div class="diagnostic-field"><span class="diagnostics-label">Transport / marker</span><p id="playback-feedback">Waiting for REAPER feedback</p></div>
+              <div class="diagnostic-field"><span class="diagnostics-label">Recall status</span><p id="playback-recall-detail" role="status" aria-live="polite"></p></div>
+              <div class="diagnostic-field"><span class="diagnostics-label">Recall destination</span><p id="playback-preview" role="status" aria-live="polite"></p></div>
+              <div class="diagnostic-field"><span class="diagnostics-label">OSC endpoint</span><p id="readiness-reaper-osc">REAPER OSC: Check settings</p></div>
               <p id="marker-mode-result" role="status" aria-live="polite" hidden></p>
             </div>
           </section>
@@ -215,7 +218,7 @@
         <div class="scene-editor-dialog-header">
           <h2 id="scene-editor-heading">Editing: No scene list loaded</h2>
           <div class="scene-editor-actions">
-            <button id="save-scene-names" type="button" disabled>Save</button>
+            <button id="save-scene-names" class="button-primary" type="button" disabled>Save</button>
             <button id="close-scene-editor" type="button">Close</button>
           </div>
         </div>
@@ -232,8 +235,8 @@
           <p id="discard-scene-editor-result" role="status" aria-live="polite"></p>
           <div class="scene-editor-confirmation-actions">
             <button id="cancel-discard-scene-editor" type="button">Cancel</button>
-            <button id="discard-scene-name-changes" type="button">Discard</button>
-            <button id="save-and-close-scene-editor" type="button">Save</button>
+            <button id="discard-scene-name-changes" class="button-destructive" type="button">Discard</button>
+            <button id="save-and-close-scene-editor" class="button-primary" type="button">Save</button>
           </div>
         </div>
       </div>
@@ -244,8 +247,8 @@
           <p id="create-scene-list-unsaved-result" role="status" aria-live="polite"></p>
           <div class="scene-editor-confirmation-actions">
             <button id="cancel-create-scene-list-unsaved" type="button">Cancel</button>
-            <button id="discard-create-scene-list-unsaved" type="button">Discard</button>
-            <button id="save-create-scene-list-unsaved" type="button">Save</button>
+            <button id="discard-create-scene-list-unsaved" class="button-destructive" type="button">Discard</button>
+            <button id="save-create-scene-list-unsaved" class="button-primary" type="button">Save</button>
           </div>
         </div>
       </div>
@@ -259,7 +262,7 @@
         <p id="scene-list-name-prompt-result" role="status" aria-live="polite"></p>
         <div class="scene-list-confirmation-actions">
           <button id="cancel-scene-list-name-prompt" type="button">Cancel</button>
-          <button id="confirm-scene-list-name-prompt" type="button">Create New</button>
+          <button id="confirm-scene-list-name-prompt" class="button-primary" type="button">Create New</button>
         </div>
       </div>
     </div>
@@ -271,7 +274,7 @@
         <p>This replaces the loaded list used for marker names.</p>
         <div class="scene-list-confirmation-actions">
           <button id="cancel-scene-list-import" type="button">Cancel</button>
-          <button id="confirm-scene-list-import" type="button">Import</button>
+          <button id="confirm-scene-list-import" class="button-primary" type="button">Import</button>
         </div>
       </div>
     </div>
@@ -283,7 +286,7 @@
         <p>This cannot be undone.</p>
         <div class="scene-list-confirmation-actions">
           <button id="cancel-delete-scene-list" type="button">Cancel</button>
-          <button id="confirm-delete-scene-list" type="button">Delete</button>
+          <button id="confirm-delete-scene-list" class="button-destructive" type="button">Delete</button>
         </div>
       </div>
     </div>
@@ -295,8 +298,8 @@
         <p id="switch-scene-list-result" role="status" aria-live="polite"></p>
         <div class="scene-list-confirmation-actions">
           <button id="cancel-switch-scene-list" type="button">Cancel</button>
-          <button id="discard-switch-scene-list" type="button">Discard</button>
-          <button id="save-switch-scene-list" type="button">Save</button>
+          <button id="discard-switch-scene-list" class="button-destructive" type="button">Discard</button>
+          <button id="save-switch-scene-list" class="button-primary" type="button">Save</button>
         </div>
       </div>
     </div>

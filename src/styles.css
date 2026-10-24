@@ -218,7 +218,7 @@ label {
 }
 
 button {
-  min-height: 26px;
+  min-height: 28px;
   margin: 0;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
@@ -287,7 +287,7 @@ p[role="status"]:empty {
 
 .setup-row {
   display: grid;
-  grid-template-columns: auto minmax(12rem, 1fr) auto;
+  grid-template-columns: 125px minmax(0, 1fr) auto;
   align-items: center;
   gap: var(--space-2);
   margin-top: var(--space-2);
@@ -295,10 +295,6 @@ p[role="status"]:empty {
 
 .setup-row[hidden] {
   display: none;
-}
-
-.setup-row-osc {
-  grid-template-columns: auto minmax(9rem, 1fr) auto minmax(6rem, 8rem) auto auto;
 }
 
 .setup-row > *,
@@ -351,7 +347,7 @@ p[role="status"]:empty {
 .live-toggle-button {
   flex: 0 0 132px;
   min-width: 0;
-  min-height: 26px;
+  min-height: 28px;
   padding: 3px 12px;
   font-size: 13px;
   font-weight: 400;
@@ -466,7 +462,7 @@ p[role="status"]:empty {
 
 .diagnostics-status {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-2);
   margin-top: var(--space-3);
 }
@@ -539,19 +535,13 @@ p[role="status"]:empty {
   overflow-wrap: anywhere;
 }
 
-.scene-list-current {
-  margin-top: var(--space-2);
-  color: var(--color-text);
-  font-weight: 650;
-}
-
 .scene-list-panel {
   margin-top: var(--space-2);
 }
 
 .scene-list-picker {
   display: grid;
-  grid-template-columns: auto minmax(12rem, 1fr) auto auto auto;
+  grid-template-columns: auto minmax(12rem, 1fr);
   align-items: center;
   gap: var(--space-2);
 }
@@ -888,14 +878,6 @@ input::placeholder {
     grid-template-columns: auto minmax(0, 1fr) auto;
   }
 
-  .setup-row-osc {
-    grid-template-columns: auto minmax(0, 1fr) auto auto;
-  }
-
-  #reaper-osc-host {
-    grid-column: 2 / -1;
-  }
-
   .scene-list-actions button,
   .scene-editor-actions button,
   .scene-editor-confirmation-actions button,
@@ -965,8 +947,9 @@ input::placeholder {
   }
 }
 
-/* Live is a fixed menu bar dropdown; only the separate settings window resizes. */
+/* Live has a compact fixed width and grows vertically to fit its content. */
 #tab-live,
+.live-window .app-tabs,
 .settings-window #view-live {
   display: none;
 }
@@ -976,10 +959,94 @@ input::placeholder {
 }
 
 .live-window .container {
-  height: 100vh;
-  overflow-y: auto;
+  height: auto;
+  min-height: 200px;
+  padding: 10px 12px;
+}
+
+.live-window .live-scene-summary {
+  padding-bottom: 8px;
+  margin-bottom: 4px;
+}
+
+.live-window .live-control-row {
+  min-height: 36px;
+  gap: 8px;
+}
+
+.live-window .live-control-row:first-child {
+  min-height: 42px;
 }
 
 .live-window #playback-recall-result {
   overflow-wrap: anywhere;
+  font-size: 12px;
+}
+
+/* Shared settings controls and section rhythm. */
+.settings-window .app-view > .app-section {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: 14px;
+  background: var(--color-bg-elevated);
+}
+
+.section-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+button.button-primary {
+  border-color: light-dark(#24746e, #57918b);
+  background: var(--color-always);
+  color: light-dark(#163e3a, #ecfffd);
+}
+
+button.button-primary:hover:not(:disabled) {
+  background: var(--color-always);
+  filter: brightness(1.08);
+}
+
+button.button-destructive {
+  color: light-dark(#b22b25, #ffaba5);
+}
+
+.settings-window input,
+.settings-window select {
+  height: 28px;
+  padding-block: 3px;
+}
+
+.setup-row > input,
+.setup-row > select {
+  width: 100%;
+  grid-column: 2;
+}
+
+.live-control-row + .live-control-row {
+  border-top: 1px solid var(--color-border);
+}
+
+.diagnostic-field {
+  min-width: 0;
+}
+
+.diagnostic-field > .diagnostics-label {
+  display: block;
+  margin-bottom: 4px;
+  font-weight: 500;
+  text-transform: none;
+}
+
+.diagnostic-field p {
+  padding: 10px;
+  overflow-wrap: anywhere;
+}
+
+#readiness-reaper-osc,
+#midi-log-result,
+#midi-scene-diagnostics {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
 }
