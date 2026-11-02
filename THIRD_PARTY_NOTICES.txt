@@ -1,4 +1,4 @@
-dLive REAPER Link v0.3.0-beta.1 - Third-party notices
+dLive REAPER Link v0.3.0-beta.2 - Third-party notices
 This file records the resolved macOS dependency graph, including build tools.
 Some entries are used only at build time and may not be present in the executable.
 No third-party source files were modified for this release.

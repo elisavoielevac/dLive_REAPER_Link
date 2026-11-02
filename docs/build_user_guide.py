@@ -30,7 +30,7 @@ def footer(canvas,doc):
     canvas.setStrokeColor(TEAL);canvas.setLineWidth(.8);canvas.line(44,H-32,W-44,H-32)
     canvas.setFont('Helvetica',8);canvas.setFillColor(MUTED)
     canvas.drawString(44,H-24,'dLive REAPER Link  /  User guide')
-    canvas.drawString(44,25,'v0.3.0-beta.1  |  24 October 2026')
+    canvas.drawString(44,25,'v0.3.0-beta.2  |  2 November 2026')
     canvas.drawRightString(W-44,25,str(doc.page))
 
 story=[]
@@ -71,5 +71,5 @@ for pi,page in enumerate(SOURCE.read_text().split('<!-- page -->')):
         if number:
             story.append(Paragraph(inline(number[2]),styles['GuideBody'],bulletText=number[1]+'.'));continue
         story.append(Paragraph(inline(line),styles['GuideBody']))
-SimpleDocTemplate(str(OUTPUT),pagesize=A4,rightMargin=44,leftMargin=44,topMargin=48,bottomMargin=46,title='dLive REAPER Link - User Guide v0.3.0-beta.1',author='dLive REAPER Link',subject='Installation, scene lists, REAPER OSC, playback recall and troubleshooting').build(story,onFirstPage=footer,onLaterPages=footer)
+SimpleDocTemplate(str(OUTPUT),pagesize=A4,rightMargin=44,leftMargin=44,topMargin=48,bottomMargin=46,title='dLive REAPER Link - User Guide v0.3.0-beta.2',author='dLive REAPER Link',subject='Installation, scene lists, REAPER OSC, playback recall and troubleshooting').build(story,onFirstPage=footer,onLaterPages=footer)
 print(OUTPUT)

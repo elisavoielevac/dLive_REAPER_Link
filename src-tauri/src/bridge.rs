@@ -15,6 +15,8 @@ use tauri::Emitter;
 pub struct Config {
     pub transport: String,
     pub host: String,
+    #[serde(default)]
+    pub network_interface: String,
     pub port: u16,
     pub channel: u8,
     pub midi_input: String,
@@ -106,6 +108,7 @@ impl Bridge {
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(Config {
                 transport: "midi".into(),
                 host: String::new(),
+                network_interface: String::new(),
                 port: 51325,
                 channel: 12,
                 midi_input,
@@ -213,6 +216,12 @@ impl Bridge {
     pub fn save(&self, mut config: Config) -> Result<(), String> {
         config.host = config.host.trim().into();
         config.validate()?;
+        if config.transport == "tcp" && config.network_interface.is_empty() {
+            return Err(
+                "Select an Ethernet interface. Wi-Fi is not supported for MixRack connections."
+                    .into(),
+            );
+        }
         let mut c = self.control.lock().unwrap();
         // Save first; a failed save must not change the live connection.
         if let Some(parent) = self.path.parent() {
@@ -283,6 +292,7 @@ fn worker(
     let mut decoder = SceneDecoder::default();
     let mut next_attempt = Instant::now();
     let mut next_midi_check = Instant::now();
+    let mut next_network_check = Instant::now();
     let mut last_published = String::new();
     loop {
         let (s, exit) = {
@@ -312,6 +322,25 @@ fn worker(
             continue;
         }
         let config = &s.config;
+        if let Some(stream) = tcp.as_ref() {
+            if Instant::now() >= next_network_check {
+                next_network_check = Instant::now() + Duration::from_secs(2);
+                if let Err(error) =
+                    super::network::check_connection(&config.network_interface, stream)
+                {
+                    let _ = stream.shutdown(Shutdown::Both);
+                    tcp = None;
+                    let mut c = control.lock().unwrap();
+                    if c.snapshot.revision == revision && c.session == Some(session) {
+                        c.session = None;
+                        c.tcp_writer = None;
+                    }
+                    drop(c);
+                    report(&control, revision, "waiting", error);
+                    next_attempt = Instant::now() + Duration::from_secs(2);
+                }
+            }
+        }
         if config.transport == "midi" && midi.is_some() && Instant::now() >= next_midi_check {
             next_midi_check = Instant::now() + Duration::from_secs(2);
             match midi_inputs() {
@@ -353,8 +382,9 @@ fn worker(
                     .parse::<IpAddr>()
                     .map_err(|_| "Enter a MixRack IP address".to_string())
                     .and_then(|ip| {
-                        TcpStream::connect_timeout(
-                            &SocketAddr::new(ip, config.port),
+                        super::network::connect(
+                            &config.network_interface,
+                            SocketAddr::new(ip, config.port),
                             Duration::from_millis(500),
                         )
                         .map_err(|e| e.to_string())
@@ -405,7 +435,7 @@ fn worker(
                     revision,
                     "connected",
                     if config.transport == "tcp" {
-                        format!("MixRack TCP open: {}:{}; MIDI channel {}. REAPER marker delivery is separate.", config.host, config.port, config.channel)
+                        format!("MixRack TCP open over selected Ethernet: {}:{}; MIDI channel {}. REAPER marker delivery is separate.", config.host, config.port, config.channel)
                     } else {
                         format!("MIDI input open: {}. Port presence does not confirm a desk connection.", config.midi_input)
                     },
@@ -682,6 +712,7 @@ mod tests {
         let config = Config {
             transport: "tcp".into(),
             host: "127.0.0.1".into(),
+            network_interface: "test-loopback".into(),
             port: listener.local_addr().unwrap().port(),
             channel: 12,
             midi_input: String::new(),
@@ -766,6 +797,7 @@ mod tests {
         let config = Config {
             transport: "midi".into(),
             host: String::new(),
+            network_interface: String::new(),
             port: 51325,
             channel: 12,
             midi_input: String::new(),
@@ -818,6 +850,7 @@ mod tests {
                 config: Config {
                     transport: "midi".into(),
                     host: String::new(),
+                    network_interface: String::new(),
                     port: 51325,
                     channel: 12,
                     midi_input: String::new(),
@@ -862,6 +895,7 @@ mod tests {
         let config = Config {
             transport: "tcp".into(),
             host: "127.0.0.1".into(),
+            network_interface: "test-loopback".into(),
             port,
             channel: 1,
             midi_input: String::new(),
@@ -945,6 +979,7 @@ mod tests {
         let config = Config {
             transport: "tcp".into(),
             host: "127.0.0.1".into(),
+            network_interface: "test-loopback".into(),
             port: listener.local_addr().unwrap().port(),
             channel: 12,
             midi_input: String::new(),
@@ -968,6 +1003,56 @@ mod tests {
         );
         bridge.listen(false);
     }
+    #[test]
+    fn legacy_tcp_settings_load_but_require_ethernet_before_connecting() {
+        let path =
+            std::env::temp_dir().join(format!("dlive-legacy-ethernet-{}.json", std::process::id()));
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        listener.set_nonblocking(true).unwrap();
+        let legacy = serde_json::json!({
+            "transport": "tcp", "host": "127.0.0.1", "port": listener.local_addr().unwrap().port(),
+            "channel": 12, "midi_input": "preserved MIDI"
+        })
+        .to_string();
+        fs::write(&path, &legacy).unwrap();
+        let config = Bridge::load(path.clone(), String::new()).unwrap();
+        assert!(config.network_interface.is_empty());
+        assert_eq!(config.midi_input, "preserved MIDI");
+        let bridge = Bridge::new(config.clone(), path.clone(), None, |_| {});
+        let deadline = Instant::now() + Duration::from_secs(2);
+        loop {
+            if bridge.snapshot().detail.contains("Select an Ethernet") {
+                break;
+            }
+            assert!(Instant::now() < deadline);
+            thread::sleep(Duration::from_millis(10));
+        }
+        assert_eq!(
+            listener.accept().unwrap_err().kind(),
+            std::io::ErrorKind::WouldBlock
+        );
+        assert!(bridge.save(config.clone()).is_err());
+        assert_eq!(fs::read_to_string(&path).unwrap(), legacy);
+        let mut selected = config;
+        selected.network_interface = "test-loopback".into();
+        bridge.save(selected.clone()).unwrap();
+        wait_for(&bridge, "connected");
+        let (_socket, _) = listener.accept().unwrap();
+        assert_eq!(Bridge::load(path.clone(), String::new()).unwrap(), selected);
+        let session = bridge.send_session().unwrap();
+        selected.network_interface = "missing-adapter".into();
+        bridge.save(selected).unwrap();
+        assert!(bridge.send_scene(session, 1).is_err());
+        wait_for(&bridge, "waiting");
+        assert!(bridge.send_session().is_err());
+        assert_eq!(
+            listener.accept().unwrap_err().kind(),
+            std::io::ErrorKind::WouldBlock
+        );
+        bridge.listen(false);
+        fs::remove_file(path).unwrap();
+    }
+
     #[test]
     fn saved_midi_migrates_and_invalid_settings_do_not_change_connection() {
         let dir = std::env::temp_dir().join(format!("dlive-settings-test-{}", std::process::id()));

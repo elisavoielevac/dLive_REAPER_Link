@@ -1,5 +1,5 @@
-dLive REAPER Link - v0.3.0-beta.1
-First packaged macOS beta - 24 October 2026
+dLive REAPER Link - v0.3.0-beta.2
+macOS beta - 2 November 2026
 
 INSTALL
 Open the DMG, drag dLive REAPER Link to Applications, eject the image,
@@ -7,7 +7,8 @@ and launch the Applications copy. Click the menu bar icon for Live.
 Right-click it for Preferences and Quit. Closing settings keeps the bridge running.
 
 QUICK SETUP
-1. Preferences > Setup: choose Direct MixRack TCP, enter the desk IP,
+1. Preferences > Setup: choose Direct MixRack TCP, select the Ethernet
+   interface connected to the control network, and enter the desk IP,
    plain TCP port (normally 51325), and base MIDI channel (1-12).
    Enable outgoing MIDI on the desk, then Save source.
    Alternatively choose a MIDI input from Allen & Heath MIDI Control.
@@ -29,16 +30,21 @@ The feature targets MixRack scenes, not the Surface cue list.
 
 READ THE INCLUDED PDF
 The illustrated User Manual covers ports, separate computers, scene lists,
-playback recall, troubleshooting, and test limits. App figures use simulated
+playback recall, and troubleshooting. App figures use simulated
 example values. Test marker adds REAPER CONNECTION TEST to the active
 REAPER project: use a disposable project.
 
-COMPATIBILITY AND BETA LIMITS
+WIRED NETWORK
+MixRack TCP uses only the selected Ethernet adapter, never Wi-Fi or an
+automatic replacement adapter. Existing beta.1 users must select an adapter
+and Save source. Audio-card networks need a bridge or physical link to
+the MixRack control network; target the MixRack IP, not the audio-card IP.
+Avoid overlapping Wi-Fi/Ethernet subnets, which can delay reconnection.
+
+COMPATIBILITY
 Universal binary: Apple Silicon and Intel code. Intel execution and
 installation on another Mac are unverified. Bundle minimum macOS: 10.13;
-older macOS versions have not been tested. Director/software testing passed;
-physical MixRack/Surface, MIDI unplug/replug, silent cable-loss timing,
-and end-to-end hardware recovery remain unverified.
+older macOS versions have not been tested. Test your own setup before a show.
 App and DMG are Developer ID-signed and Apple-notarized.
 
 SUPPORT AND UPDATES

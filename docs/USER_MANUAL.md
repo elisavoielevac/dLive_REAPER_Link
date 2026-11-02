@@ -1,5 +1,5 @@
 # dLive REAPER Link
-## User guide - v0.3.0-beta.1
+## User guide - v0.3.0-beta.2
 
 A menu bar bridge between dLive MixRack scene recalls and REAPER markers, with optional playback-driven scene recall for virtual soundcheck.
 
@@ -16,7 +16,7 @@ A menu bar bridge between dLive MixRack scene recalls and REAPER markers, with o
 
 ### Before the first show
 
-Use a separate REAPER test project and verify the full path with your own desk. Director and loopback testing have passed; physical MixRack/Surface, MIDI unplug/replug, silent network-loss timing, and hardware recovery remain unverified in this beta.
+Use a separate REAPER test project and verify the full path with your own desk and scene list before a show.
 
 <!-- page -->
 
@@ -28,7 +28,13 @@ Use a separate REAPER test project and verify the full path with your own desk. 
 
 ### Direct MixRack TCP
 
-In **Preferences... > Setup**, choose **Direct MixRack TCP**. Enter the MixRack IP, its plain TCP port (normally **51325**), and the desk base MIDI channel (**1-12**). Enable outgoing MIDI on the desk, then click **Save source**. The protocol implementation targets dLive firmware V2.0 and later; TLS connections are not supported.
+In **Preferences... > Setup**, choose **Direct MixRack TCP** and select the **Ethernet interface** connected to the control network. Enter the MixRack IP, its plain TCP port (normally **51325**), and the desk base MIDI channel (**1-12**). Enable outgoing MIDI on the desk, then click **Save source**. The protocol implementation targets dLive firmware V2.0 and later; TLS connections are not supported.
+
+The app uses only the selected wired adapter and waits if it is missing; it never uses Wi-Fi or switches adapters automatically. After updating from beta.1, select the Ethernet interface and **Save source**.
+
+The wired path must reach the **MixRack control IP**. An audio-card network needs its control-network bridge or a physical link to MixRack Network. With Waves V3, patch MixRack Network to a spare Waves port or the shared switch; keep targeting the MixRack IP, not the SoundGrid IP.
+
+Avoid overlapping Wi-Fi and Ethernet subnets: they can delay macOS wired-route recovery after reconnection. Turn Wi-Fi off or use separate subnets.
 
 ### MIDI input alternative
 
@@ -122,7 +128,7 @@ For example, if marker **Song A** matches the name in scene-list slot **17**, th
 
 *Release UI with example connection and feedback values; these are illustrative, not a hardware test result.*
 
-**Waiting or connection refused:** check source choice, MixRack IP, plain TCP port, desk MIDI settings, and the network route. A present virtual MIDI port is not proof of a connected desk. Stop Listening deliberately pauses recovery; Start Listening rearms it.
+**Waiting or connection refused:** check the selected Ethernet adapter, its IP address, the MixRack control-network link, MixRack IP, plain TCP port, and desk MIDI settings. If Wi-Fi and Ethernet share a subnet, turn Wi-Fi off or use separate subnets. A present virtual MIDI port is not proof of a connected desk. Stop Listening deliberately pauses recovery; Start Listening rearms it.
 
 **No markers in Recording Only:** confirm that REAPER is actually recording and that feedback is reaching port 49102 on the app computer. Run Refresh all surfaces manually and allow a couple of seconds. Check exact list names and the selected source.
 
@@ -132,6 +138,6 @@ For example, if marker **Song A** matches the name in scene-list slot **17**, th
 
 ### Report a useful issue
 
-Include **v0.3.0-beta.1**, Mac model/macOS version, Director versus physical desk, source/port/channel, marker mode, playback recall state, exact marker name and expected scene slot, transport state, and steps to reproduce. Use the repository's Issues page and the Tour Test Notes format.
+Include **v0.3.0-beta.2**, Mac model/macOS version, Director versus physical desk, source/port/channel, marker mode, playback recall state, exact marker name and expected scene slot, transport state, and steps to reproduce. Use the repository's Issues page and the Tour Test Notes format.
 
-This beta has passed automated Rust and browser checks and software testing with Director. Physical desk recovery, Intel execution, and installation on another Mac remain unverified. The bundle declares macOS 10.13 as its minimum; older macOS versions have not been tested.
+The universal download contains Apple Silicon and Intel code. Intel execution and installation on another Mac are unverified. The bundle declares macOS 10.13 as its minimum; older macOS versions have not been tested.

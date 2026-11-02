@@ -1,6 +1,6 @@
 # dLive REAPER Link
 
-**First packaged release: v0.3.0-beta.1 — macOS beta.**
+**v0.3.0-beta.2 — macOS beta.**
 
 Creates REAPER markers from dLive MixRack scene recalls, with optional REAPER playback-to-MixRack scene recall for virtual soundcheck. Choose direct MixRack MIDI-over-TCP or an existing MIDI input exposed by Allen & Heath MIDI Control. Playback recall requires Direct MixRack TCP.
 
@@ -10,7 +10,7 @@ Download the universal DMG from [Releases](https://github.com/elisavoielevac/dLi
 
 The release includes the illustrated PDF manual, an offline installation README, third-party notices, and SHA-256 checksums. The app and DMG are Developer ID-signed and Apple-notarized. The universal app contains Apple Silicon and Intel code. Intel execution and installation on another Mac are unverified. The bundle declares macOS 10.13 as its minimum; older macOS versions have not been tested.
 
-This is a beta: Director and simulated-desk results do not establish physical MixRack/Surface or cable-loss recovery validation. Test on your own setup before a show.
+Test the app with your own desk, scene list, and REAPER project before a show.
 
 ## User guide
 
@@ -21,7 +21,7 @@ Download the [illustrated PDF user guide](docs/dLive-REAPER-Link-User-Guide.pdf)
 ## Current features
 
 - MixRack scenes 1–500, with configurable desk MIDI channel (1–12).
-- Direct plain TCP connection with stream framing, MIDI running status, reconnect, and TCP keepalive.
+- Direct plain TCP connection over an explicitly selected Ethernet adapter, with stream framing, MIDI running status, reconnect, and TCP keepalive. MixRack TCP never uses Wi-Fi or automatically switches adapters.
 - MIDI input fallback; only one selected source creates markers.
 - Recording Only and Always marker modes.
 - Off-by-default playback recall, using exact REAPER marker names and the selected scene list’s original scene-slot numbers. Preview and send status appear in Diagnostics.
@@ -33,14 +33,22 @@ Download the [illustrated PDF user guide](docs/dLive-REAPER-Link-User-Guide.pdf)
 
 ## Setup
 
-1. In Setup, choose **Direct MixRack TCP** and enter the MixRack IP, plain TCP port (normally `51325`), and the desk's base MIDI channel. This implementation targets dLive firmware V2.0 and later. Enable outgoing MIDI on the desk. TLS ports and Surface cue recall are not supported in this beta.
+1. In Setup, choose **Direct MixRack TCP**, select the **Ethernet interface** connected to the control network, and enter the MixRack IP, plain TCP port (normally `51325`), and the desk's base MIDI channel. This implementation targets dLive firmware V2.0 and later. Enable outgoing MIDI on the desk. TLS ports and Surface cue recall are not supported in this beta.
 2. Alternatively, connect Allen & Heath MIDI Control to the MixRack and select its MIDI input. Existing saved MIDI selections migrate automatically. Choose **Save source** to apply source settings.
 3. Configure the REAPER OSC host and port, and enable OSC in REAPER. For Recording Only mode, configure REAPER OSC feedback to `127.0.0.1:49102` on the computer running this app.
 4. Create, import, or load the appropriate scene list, choose the marker mode, and start listening from Live or the menu bar.
 
 Green means the selected TCP socket or MIDI input is open. Amber means waiting/connecting, gray means stopped, and red means an error. A virtual MIDI port can remain present without a live desk. An open TCP connection does not confirm that outgoing scene MIDI is enabled or that REAPER received a marker. Check Diagnostics and use the separate REAPER test.
 
-TCP keepalive helps detect silent network loss without treating an idle desk as disconnected. Detection time depends on the operating system; physical cable-loss timing still needs hardware testing. Pending scene recalls from a lost or replaced connection are discarded. With Playback recall Off, the desk connection remains receive-only. Turning Playback recall On enables scene commands to the MixRack.
+TCP keepalive helps detect silent network loss without treating an idle desk as disconnected. Detection and reconnection time depend on the operating system and network configuration. Pending scene recalls from a lost or replaced connection are discarded. With Playback recall Off, the desk connection remains receive-only. Turning Playback recall On enables scene commands to the MixRack.
+
+### Wired network setup
+
+Choose the Ethernet adapter in Setup and click **Save source**. The app remembers that adapter and waits if it is unavailable. After updating from beta.1, select an Ethernet interface explicitly before using Direct MixRack TCP.
+
+The selected wired network must reach the **MixRack control IP**. A connection to an audio card alone is not enough: enable the appropriate control-network bridge or provide a physical link to the MixRack Network port. For Waves V3, connect the MixRack Network port to a spare Waves network port or the shared switch. Continue targeting the MixRack IP, not the audio card IP.
+
+Avoid using the same IP subnet on Wi-Fi and Ethernet. macOS can take longer to restore the wired route after a cable reconnect when the subnets overlap. Turn Wi-Fi off during use or use separate subnets.
 
 ## REAPER OSC configuration
 

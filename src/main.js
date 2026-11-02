@@ -286,6 +286,33 @@ window.addEventListener("DOMContentLoaded", () => {
   let bridgeSnapshot;
   let bridgeSettingsLoaded = false;
   const bridgeTransport = document.querySelector("#bridge-transport");
+  const bridgeInterface = document.querySelector("#bridge-interface");
+  const bridgeInterfaceResult = document.querySelector("#bridge-interface-result");
+  const refreshBridgeInterfacesButton = document.querySelector("#refresh-bridge-interfaces");
+  let ethernetInterfaces = [];
+  function renderEthernetInterfaces(selected = bridgeInterface.value) {
+    const prompt = new Option("Select Ethernet interface", "");
+    const options = ethernetInterfaces.map((item) => new Option(
+      `${item.name || "Ethernet"} — ${item.bsd_name} — ${item.addresses.join(", ") || "No IP address"}${item.ready ? "" : " (unavailable)"}`, item.id));
+    if (selected && !ethernetInterfaces.some((item) => item.id === selected)) {
+      options.push(new Option(`Selected adapter unavailable (${selected})`, selected));
+    }
+    bridgeInterface.replaceChildren(prompt, ...options);
+    bridgeInterface.value = selected;
+  }
+  async function refreshEthernetInterfaces() {
+    refreshBridgeInterfacesButton.disabled = true;
+    try {
+      ethernetInterfaces = await invoke("list_ethernet_interfaces");
+      renderEthernetInterfaces();
+      bridgeInterfaceResult.textContent = ethernetInterfaces.length
+        ? "MixRack connections use the selected Ethernet adapter only. Wi-Fi is never used."
+        : "No Ethernet adapters found. Connect an Ethernet adapter and refresh. Wi-Fi is not supported.";
+    } catch (error) {
+      bridgeInterfaceResult.textContent = `Could not list Ethernet interfaces: ${error}`;
+    } finally { refreshBridgeInterfacesButton.disabled = false; }
+  }
+  refreshBridgeInterfacesButton.addEventListener("click", refreshEthernetInterfaces);
   const bridgeHost = document.querySelector("#bridge-host");
   const bridgePort = document.querySelector("#bridge-port");
   const bridgeChannel = document.querySelector("#bridge-channel");
@@ -1097,6 +1124,8 @@ window.addEventListener("DOMContentLoaded", () => {
       selectedMidiInput = config.midi_input;
       bridgeTransport.value = config.transport;
       bridgeHost.value = config.host;
+      renderEthernetInterfaces(config.network_interface || "");
+      void refreshEthernetInterfaces();
       bridgePort.value = config.port;
       bridgeChannel.value = config.channel;
       bridgeSettingsLoaded = true;
@@ -1113,6 +1142,7 @@ window.addEventListener("DOMContentLoaded", () => {
     try {
       await invoke("save_bridge_settings", { config: {
         transport: bridgeTransport.value, host: bridgeHost.value.trim(),
+        network_interface: bridgeInterface.value,
         port: Number(bridgePort.value), channel: Number(bridgeChannel.value),
         midi_input: selectedMidiInput,
       } });

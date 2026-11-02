@@ -1,4 +1,5 @@
 mod bridge;
+mod network;
 pub mod reaper_osc;
 
 use std::fs;
@@ -1064,6 +1065,11 @@ fn delete_scene_list(
 }
 
 #[tauri::command]
+fn list_ethernet_interfaces() -> Result<Vec<network::EthernetInterface>, String> {
+    network::interfaces()
+}
+
+#[tauri::command]
 fn get_bridge_status(bridge: tauri::State<'_, bridge::Bridge>) -> bridge::Snapshot {
     bridge.snapshot()
 }
@@ -1407,6 +1413,7 @@ mod tests {
             bridge::Config {
                 transport: "tcp".into(),
                 host: "127.0.0.1".into(),
+                network_interface: "test-loopback".into(),
                 port: listener.local_addr().unwrap().port(),
                 channel: 12,
                 midi_input: String::new(),
@@ -1676,6 +1683,7 @@ pub fn run() {
             delete_scene_list,
             set_playback_recall,
             get_playback_preview,
+            list_ethernet_interfaces,
             get_bridge_status,
             save_bridge_settings,
             set_bridge_listening,
